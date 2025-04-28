@@ -79,7 +79,7 @@ class HomeScreen extends ConsumerWidget {
       crossAxisSpacing: 15,
       childAspectRatio: 1.05,
       children: [
-        _buildGridItem(
+        buildGridItem(
           context,
           'Manage Zone &\nmembers',
           const Color(0xFFE8F5E9),
@@ -87,7 +87,7 @@ class HomeScreen extends ConsumerWidget {
           Icons.groups_outlined,
           onTap: () => context.go('/manage-zone'),
         ),
-        _buildGridItem(
+        buildGridItem(
           context,
           'Manage Red\nTags',
           const Color(0xFFFCE4EC),
@@ -95,7 +95,7 @@ class HomeScreen extends ConsumerWidget {
           Icons.label_outlined,
           onTap: () => context.push('/manage-red-tags'),
         ),
-        _buildGridItem(
+        buildGridItem(
           context,
           'Manage\nManual',
           const Color(0xFFE3F2FD),
@@ -103,7 +103,7 @@ class HomeScreen extends ConsumerWidget {
           Icons.menu_book_outlined,
           onTap: () => context.go('/manage-manual'),
         ),
-        _buildGridItem(
+        buildGridItem(
           context,
           'Manage\nAudit',
           const Color(0xFFF3E5F5),
@@ -111,7 +111,7 @@ class HomeScreen extends ConsumerWidget {
           Icons.assignment_outlined,
           onTap: () => context.go('/manage-audit'),
         ),
-        _buildGridItem(
+        buildGridItem(
           context,
           'Manage\nNews',
           const Color(0xFFFFF3E0),  // Light Orange
@@ -119,7 +119,7 @@ class HomeScreen extends ConsumerWidget {
           Icons.newspaper_outlined,
           onTap: () => context.go('/manage-news'),
         ),
-        _buildGridItem(
+        buildGridItem(
           context,
           'Manage Training\nMaterial',
           const Color(0xFFE8EAF6),  // Light Indigo
@@ -127,7 +127,7 @@ class HomeScreen extends ConsumerWidget {
           Icons.school_outlined,
           onTap: () => context.go('/manage-training-material'),
         ),
-        _buildGridItem(
+        buildGridItem(
           context,
           'Upload Best\nPractices',
           const Color(0xFFE0F2F1),  // Light Teal
@@ -135,7 +135,7 @@ class HomeScreen extends ConsumerWidget {
           Icons.upload_file_outlined,
           onTap: () => context.go('/manage-best-practices'),
         ),
-        _buildGridItem(
+        buildGridItem(
           context,
           'Flash\nNews',
           const Color(0xFFFFEBEE),  // Light Red
@@ -147,7 +147,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildGridItem(
+  Widget buildGridItem(
     BuildContext context,
     String title,
     Color bgColor,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/audit.dart';
+import '../theme/colors.dart';
+import '../data/default_audit_questions.dart';
 
 class ManageAuditScreen extends StatefulWidget {
   const ManageAuditScreen({Key? key}) : super(key: key);
@@ -14,10 +16,26 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.purple[50],
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Manage Audit'),
-        backgroundColor: Colors.purple,
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        title: const Text(
+          'Manage Audit',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list, color: AppColors.textPrimary),
+            onPressed: () {
+              // TODO: Implement filter functionality
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -27,7 +45,7 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final newAuditSheet = await Navigator.push(
             context,
@@ -41,32 +59,69 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
             });
           }
         },
-        backgroundColor: Colors.purple,
-        child: const Icon(Icons.add),
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Icons.add, color: AppColors.secondaryLight),
+        label: const Text(
+          'Create Audit',
+          style: TextStyle(color: AppColors.secondaryLight),
+        ),
       ),
     );
   }
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.white,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Audit Sheets',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Audit Sheets',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${auditSheets.length}',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(
-            '${auditSheets.length} sheets available',
+            'Manage and create audit sheets for different zones',
             style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 16,
+              color: AppColors.textSecondary,
+              fontSize: 14,
             ),
           ),
         ],
@@ -80,17 +135,40 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.assignment_outlined,
-              size: 64,
-              color: Colors.grey[400],
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.assignment_outlined,
+                size: 64,
+                color: AppColors.primary,
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 24),
+            const Text(
               'No audit sheets created yet',
               style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Create your first audit sheet to get started',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
@@ -99,27 +177,99 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
     }
 
     return ListView.builder(
-      itemCount: auditSheets.length,
       padding: const EdgeInsets.all(16),
+      itemCount: auditSheets.length,
       itemBuilder: (context, index) {
         final sheet = auditSheets[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: ListTile(
-            title: Text(sheet.name),
-            subtitle: Text(
-              'Created: ${_formatDate(sheet.createdAt)}\n${sheet.questions.length} questions',
+            contentPadding: const EdgeInsets.all(16),
+            title: Text(
+              sheet.name,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => _editAuditSheet(sheet),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatDate(sheet.createdAt),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(
+                      Icons.question_answer,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${sheet.questions.length} questions',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _deleteAuditSheet(sheet),
+              ],
+            ),
+            trailing: PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: AppColors.textSecondary),
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _editAuditSheet(sheet);
+                } else if (value == 'delete') {
+                  _deleteAuditSheet(sheet);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, color: AppColors.primary),
+                      SizedBox(width: 8),
+                      Text('Edit'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete'),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -152,6 +302,9 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Delete Audit Sheet'),
         content: Text('Are you sure you want to delete "${sheet.name}"?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -166,6 +319,9 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Delete'),
           ),
@@ -178,18 +334,12 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
 // Define a reusable widget for question entry
 class QuestionEntry extends StatelessWidget {
   final TextEditingController questionController;
-  final TextEditingController remarksController;
-  final Function(int?) onScoreChanged;
   final VoidCallback onAttachPhoto;
-  final int? selectedScore;
 
   const QuestionEntry({
     Key? key,
     required this.questionController,
-    required this.remarksController,
-    required this.onScoreChanged,
     required this.onAttachPhoto,
-    this.selectedScore,
   }) : super(key: key);
 
   @override
@@ -203,26 +353,6 @@ class QuestionEntry extends StatelessWidget {
             labelText: 'Question',
             border: OutlineInputBorder(),
           ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: remarksController,
-          decoration: const InputDecoration(
-            labelText: 'Write remarks (optional)',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            const Text('Score:'),
-            Radio<int>(value: 0, groupValue: selectedScore, onChanged: onScoreChanged),
-            const Text('0'),
-            Radio<int>(value: 1, groupValue: selectedScore, onChanged: onScoreChanged),
-            const Text('1'),
-            Radio<int>(value: 2, groupValue: selectedScore, onChanged: onScoreChanged),
-            const Text('2'),
-          ],
         ),
         const SizedBox(height: 16),
         ElevatedButton(
@@ -252,8 +382,6 @@ class _AuditEditorScreenState extends State<_AuditEditorScreen> {
   final List<QuestionEntry> questionEntries = [
     QuestionEntry(
       questionController: TextEditingController(),
-      remarksController: TextEditingController(),
-      onScoreChanged: (int? value) {},
       onAttachPhoto: () {},
     ),
   ];
@@ -344,160 +472,6 @@ class _AuditEditorScreenState extends State<_AuditEditorScreen> {
   }
 }
 
-class _AddQuestionsPage extends StatefulWidget {
-  final List<AuditQuestion> savedQuestions;
-  final Function(AuditQuestion) onAddQuestion;
-
-  const _AddQuestionsPage({
-    Key? key,
-    required this.savedQuestions,
-    required this.onAddQuestion,
-  }) : super(key: key);
-
-  @override
-  _AddQuestionsPageState createState() => _AddQuestionsPageState();
-}
-
-class _AddQuestionsPageState extends State<_AddQuestionsPage> {
-  final TextEditingController questionController = TextEditingController();
-  final TextEditingController remarksController = TextEditingController();
-  int? selectedScore;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Questions'),
-        backgroundColor: Colors.blueGrey,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: questionController,
-              decoration: const InputDecoration(
-                labelText: 'Question',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: remarksController,
-              decoration: const InputDecoration(
-                labelText: 'Write remarks (optional)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Text('Score:'),
-                Radio<int>(
-                  value: 0,
-                  groupValue: selectedScore,
-                  onChanged: (int? value) {
-                    setState(() {
-                      selectedScore = value;
-                    });
-                  },
-                ),
-                const Text('0'),
-                Radio<int>(
-                  value: 1,
-                  groupValue: selectedScore,
-                  onChanged: (int? value) {
-                    setState(() {
-                      selectedScore = value;
-                    });
-                  },
-                ),
-                const Text('1'),
-                Radio<int>(
-                  value: 2,
-                  groupValue: selectedScore,
-                  onChanged: (int? value) {
-                    setState(() {
-                      selectedScore = value;
-                    });
-                  },
-                ),
-                const Text('2'),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                final newQuestion = AuditQuestion(
-                  id: DateTime.now().toString(),
-                  question: questionController.text,
-                  section: 15, // Example section value
-                  grade: selectedScore?.toDouble() ?? 0.0, // Default grade value
-                );
-                setState(() {
-                  widget.onAddQuestion(newQuestion);
-                  questionController.clear();
-                  remarksController.clear();
-                  selectedScore = null;
-                });
-              },
-              child: const Text('Add New Question'),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
-                itemCount: widget.savedQuestions.length,
-                itemBuilder: (context, index) {
-                  final question = widget.savedQuestions[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: ListTile(
-                      title: Text('Question ${index + 1}: ${question.question}'),
-                      subtitle: Text('Score: ${question.grade}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () {
-                              // Implement edit logic
-                              questionController.text = question.question;
-                              selectedScore = question.grade.toInt();
-                              setState(() {
-                                widget.savedQuestions.removeAt(index);
-                              });
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () {
-                              setState(() {
-                                widget.savedQuestions.removeAt(index);
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context, widget.savedQuestions);
-                Navigator.pop(context);
-              },
-              child: const Text('Generate Audit Sheet'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _CreateAuditSheetPage extends StatefulWidget {
   @override
   _CreateAuditSheetPageState createState() => _CreateAuditSheetPageState();
@@ -511,89 +485,575 @@ class _CreateAuditSheetPageState extends State<_CreateAuditSheetPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Create Audit Sheet'),
-        backgroundColor: Colors.blueGrey,
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        title: const Text(
+          'Create Audit Sheet',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Zone Name',
-                border: OutlineInputBorder(),
-              ),
-              items: ['Zone A', 'Zone B', 'Zone C'].map((zone) => DropdownMenuItem<String>(
-                value: zone,
-                child: Text(zone),
-              )).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedZone = value;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              readOnly: true,
-              decoration: const InputDecoration(
-                labelText: 'Audit Month',
-                border: OutlineInputBorder(),
-              ),
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2100),
-                );
-                if (date != null) {
-                  setState(() {
-                    selectedDate = date;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () async {
-                final newQuestions = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => _AddQuestionsPage(
-                      savedQuestions: questions,
-                      onAddQuestion: (AuditQuestion question) {
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Basic Information',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: 'Zone Name',
+                        labelStyle: TextStyle(color: AppColors.textSecondary),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.primary),
+                        ),
+                        filled: true,
+                        fillColor: AppColors.background,
+                      ),
+                      items: ['Zone A', 'Zone B', 'Zone C'].map((zone) => DropdownMenuItem<String>(
+                        value: zone,
+                        child: Text(zone),
+                      )).toList(),
+                      onChanged: (value) {
                         setState(() {
-                          questions.add(question);
+                          selectedZone = value;
                         });
                       },
                     ),
-                  ),
-                );
-                if (newQuestions != null) {
-                  setState(() {
-                    questions.addAll(newQuestions);
-                  });
-                }
-              },
-              child: const Text('Add Questions'),
-            ),
-            const SizedBox(height: 16),
-            if (questions.isNotEmpty)
-              ElevatedButton(
-                onPressed: () {
-                  final newAuditSheet = AuditSheet(
-                    name: 'Audit Sheet for $selectedZone',
-                    createdAt: DateTime.now(),
-                    questions: questions,
-                    id: '',
-                  );
-                  Navigator.pop(context, newAuditSheet);
-                },
-                child: const Text('Generate Audit Sheet'),
+                    const SizedBox(height: 16),
+                    TextField(
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: 'Audit Month',
+                        labelStyle: TextStyle(color: AppColors.textSecondary),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.primary),
+                        ),
+                        filled: true,
+                        fillColor: AppColors.background,
+                        suffixIcon: Icon(Icons.calendar_today, color: AppColors.textSecondary),
+                      ),
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (date != null) {
+                          setState(() {
+                            selectedDate = date;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () async {
+                  if (selectedZone == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please select a zone first'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => _AddQuestionsPage(
+                        savedQuestions: questions,
+                        onAddQuestion: (AuditQuestion question) {
+                          setState(() {
+                            questions.add(question);
+                          });
+                        },
+                        zoneName: selectedZone,
+                      ),
+                    ),
+                  );
+                  
+                  if (result != null && result is AuditSheet) {
+                    Navigator.pop(context, result);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Add Questions',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.secondaryLight,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddQuestionsPage extends StatefulWidget {
+  final List<AuditQuestion> savedQuestions;
+  final Function(AuditQuestion) onAddQuestion;
+  final String? zoneName;
+
+  const _AddQuestionsPage({
+    Key? key,
+    required this.savedQuestions,
+    required this.onAddQuestion,
+    this.zoneName,
+  }) : super(key: key);
+
+  @override
+  _AddQuestionsPageState createState() => _AddQuestionsPageState();
+}
+
+class _AddQuestionsPageState extends State<_AddQuestionsPage> {
+  final TextEditingController questionController = TextEditingController();
+  final List<AuditQuestion> questions = [];
+  bool showDefaultQuestions = true;
+
+  @override
+  void initState() {
+    super.initState();
+    questions.addAll(widget.savedQuestions);
+  }
+
+  void _loadDefaultQuestions() {
+    setState(() {
+      questions.clear();
+      questions.addAll(defaultAuditQuestions);
+    });
+  }
+
+  void _removeAllQuestions() {
+    setState(() {
+      questions.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        title: const Text(
+          'Add Questions',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      // Add bottom button container
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: ElevatedButton(
+            onPressed: questions.isEmpty
+                ? null // Disable button if no questions
+                : () {
+                    final newAuditSheet = AuditSheet(
+                      name: 'Audit Sheet for ${widget.zoneName ?? "Unknown Zone"}',
+                      createdAt: DateTime.now(),
+                      questions: questions,
+                      id: '',
+                    );
+                    Navigator.pop(context, newAuditSheet);
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+              minimumSize: const Size(double.infinity, 56),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  'Generate Audit ${questions.isNotEmpty ? "(${questions.length})" : ""}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Section with Action Buttons
+            Container(
+              padding: const EdgeInsets.all(24.0),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Question Management',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Add, load default, or manage your audit questions',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _loadDefaultQuestions,
+                          icon: const Icon(Icons.playlist_add, color: Colors.white),
+                          label: const Text(
+                            'Load Default Questions',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                      if (questions.isNotEmpty) ...[
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: _removeAllQuestions,
+                          icon: const Icon(Icons.clear_all, color: Colors.red),
+                          label: const Text(
+                            'Clear All',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.withOpacity(0.1),
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Add New Question Container
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Add New Question',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: questionController,
+                          decoration: InputDecoration(
+                            labelText: 'Question',
+                            labelStyle: TextStyle(color: AppColors.textSecondary),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: AppColors.border),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: AppColors.border),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AppColors.primary),
+                            ),
+                            filled: true,
+                            fillColor: AppColors.background,
+                          ),
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (questionController.text.isNotEmpty) {
+                              final newQuestion = AuditQuestion(
+                                id: DateTime.now().toString(),
+                                question: questionController.text,
+                                section: 15,
+                                grade: 0,
+                              );
+                              setState(() {
+                                questions.add(newQuestion);
+                                questionController.clear();
+                              });
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            minimumSize: const Size(double.infinity, 56),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Add Question',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (questions.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Added Questions',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${questions.length}',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: questions.length,
+                      itemBuilder: (context, index) {
+                        final question = questions[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.border.withOpacity(0.5),
+                            ),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(16),
+                            title: Text(
+                              question.question,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            leading: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: AppColors.primary),
+                                  onPressed: () {
+                                    questionController.text = question.question;
+                                    setState(() {
+                                      questions.removeAt(index);
+                                    });
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () {
+                                    setState(() {
+                                      questions.removeAt(index);
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    // Add padding at the bottom to prevent content from being hidden behind the fixed button
+                    const SizedBox(height: 80),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
