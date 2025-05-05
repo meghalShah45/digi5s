@@ -14,7 +14,6 @@ import 'package:seicho_app/screens/manage_training_material_screen.dart';
 import 'screens/flash_news_screen.dart';
 import 'screens/manage_best_practices_screen.dart';
 import 'screens/module_selection_screen.dart';
-import 'screens/super_admin_dashboard.dart';
 import 'screens/org_admin_dashboard.dart';
 import 'screens/zone_leader_dashboard.dart';
 import 'screens/zone_member_dashboard.dart';
@@ -23,6 +22,18 @@ import 'screens/manage_5s_tasks_screen.dart';
 import 'screens/create_5s_task_screen.dart';
 import 'screens/approve_5s_task_screen.dart';
 import 'screens/my_5s_tasks_screen.dart';
+import 'screens/manage_red_tags_main_screen.dart';
+import 'screens/create_red_tag_screen.dart';
+import 'screens/view_red_tag_list_screen.dart';
+import 'screens/ss_training_material_screen.dart';
+import 'screens/perform_audit_screen.dart';
+import 'screens/perform_audit_detail_screen.dart';
+import '../models/audit.dart';
+import 'screens/super_admin_dashboard.dart';
+import 'screens/add_organization_screen.dart';
+import 'screens/active_organizations_screen.dart';
+import 'screens/manage_org_info_screen.dart';
+import '../models/organization.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -34,6 +45,21 @@ final router = GoRouter(
     GoRoute(
       path: '/super-admin-dashboard',
       builder: (context, state) => const SuperAdminDashboard(),
+    ),
+    GoRoute(
+      path: '/super-admin/add-organization',
+      builder: (context, state) => const AddOrganizationScreen(),
+    ),
+    GoRoute(
+      path: '/super-admin/active-organizations',
+      builder: (context, state) => const ActiveOrganizationsScreen(),
+    ),
+    GoRoute(
+      path: '/super-admin/manage-org-info',
+      builder: (context, state) {
+        final org = state.extra as Organization;
+        return ManageOrgInfoScreen(org: org);
+      },
     ),
     GoRoute(
       path: '/org-admin-dashboard',
@@ -78,9 +104,15 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/manage-red-tags',
-      builder: (BuildContext context, GoRouterState state) {
-        return const ManageRedTagsScreen();
-      },
+      builder: (context, state) => const ManageRedTagsMainScreen(),
+    ),
+    GoRoute(
+      path: '/create-red-tag',
+      builder: (context, state) => const CreateRedTagScreen(),
+    ),
+    GoRoute(
+      path: '/view-red-tag-list',
+      builder: (context, state) => const ViewRedTagListScreen(),
     ),
     GoRoute(
       path: '/red-tag-details/:tagId',
@@ -114,6 +146,10 @@ final router = GoRouter(
       },
     ),
     GoRoute(
+      path: '/5s-training-material',
+      builder: (context, state) => const SSTrainingMaterialScreen(),
+    ),
+    GoRoute(
       path: '/flash-news',
       builder: (context, state) => const FlashNewsScreen(),
     ),
@@ -136,6 +172,17 @@ final router = GoRouter(
     GoRoute(
       path: '/my-5s-tasks',
       builder: (context, state) => const My5STasksScreen(),
+    ),
+    GoRoute(
+      path: '/perform-audit',
+      builder: (context, state) => const PerformAuditScreen(),
+    ),
+    GoRoute(
+      path: '/perform-audit/:id',
+      builder: (context, state) {
+        final sheet = state.extra as AuditSheet;
+        return PerformAuditDetailScreen(sheet: sheet);
+      },
     ),
   ],
 ); 

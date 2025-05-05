@@ -53,7 +53,7 @@ class ModuleSelectionScreen extends StatelessWidget {
           return Card(
             elevation: 4,
             child: InkWell(
-              onTap: () => context.go(module['route'].toString()),
+              onTap: () => context.push(module['route'].toString()),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
