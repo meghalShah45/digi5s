@@ -1,55 +1,74 @@
 class RedTag {
   final String id;
-  final String title;
+  final String orgId;
+  final String zoneId;
   final String description;
-  final DateTime dateCreated;
-  final String status; // 'pending', 'approved', 'rejected'
+  final String path;
+  final String status;
+  final List<Activity> activity;
   final String? remarks;
-  final String? decision;
-  final String zoneId; // The zone this red tag belongs to
-  final String createdById; // ID of the user who created the red tag
-  final String? completedById; // ID of the user who completed the red tag
-  final DateTime? completedAt; // When the red tag was completed
+  final bool approved;
+  final DateTime createdAt;
+  final String createdBy;
+  final String email;
+  final String zoneName;
 
   RedTag({
     required this.id,
-    required this.title,
-    required this.description,
-    required this.dateCreated,
-    required this.status,
+    required this.orgId,
     required this.zoneId,
-    required this.createdById,
+    required this.description,
+    required this.path,
+    required this.status,
+    required this.activity,
     this.remarks,
-    this.decision,
-    this.completedById,
-    this.completedAt,
+    required this.approved,
+    required this.createdAt,
+    required this.createdBy,
+    required this.email,
+    required this.zoneName,
   });
 
-  RedTag copyWith({
-    String? id,
-    String? title,
-    String? description,
-    DateTime? dateCreated,
-    String? status,
-    String? remarks,
-    String? decision,
-    String? zoneId,
-    String? createdById,
-    String? completedById,
-    DateTime? completedAt,
-  }) {
+  factory RedTag.fromJson(Map<String, dynamic> json) {
     return RedTag(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      dateCreated: dateCreated ?? this.dateCreated,
-      status: status ?? this.status,
-      remarks: remarks ?? this.remarks,
-      decision: decision ?? this.decision,
-      zoneId: zoneId ?? this.zoneId,
-      createdById: createdById ?? this.createdById,
-      completedById: completedById ?? this.completedById,
-      completedAt: completedAt ?? this.completedAt,
+      id: json['id'],
+      orgId: json['orgId'],
+      zoneId: json['zoneId'],
+      description: json['description'],
+      path: json['path'],
+      status: json['status'],
+      activity: (json['activity'] as List)
+          .map((activity) => Activity.fromJson(activity))
+          .toList(),
+      remarks: json['remarks'],
+      approved: json['approved'],
+      createdAt: DateTime.parse(json['createdAt']),
+      createdBy: json['createdBy'],
+      email: json['email'],
+      zoneName: json['zoneName'],
+    );
+  }
+}
+
+class Activity {
+  final String status;
+  final DateTime actionOn;
+  final String description;
+  final String actionBy;
+
+  Activity({
+    required this.status,
+    required this.actionOn,
+    required this.description,
+    required this.actionBy,
+  });
+
+  factory Activity.fromJson(Map<String, dynamic> json) {
+    return Activity(
+      status: json['status'],
+      actionOn: DateTime.parse(json['actionOn']),
+      description: json['description'],
+      actionBy: json['actionBy'],
     );
   }
 } 

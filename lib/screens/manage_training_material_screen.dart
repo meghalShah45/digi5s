@@ -1,7 +1,9 @@
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/zone.dart';
 import '../theme/colors.dart';
+import '../services/zone_service.dart';
 
 class TrainingMaterial {
   final String id;
@@ -55,25 +57,11 @@ class ManageTrainingMaterialScreen extends StatefulWidget {
 }
 
 class _ManageTrainingMaterialScreenState extends State<ManageTrainingMaterialScreen> {
+  final ZoneService _zoneService = ZoneService();
   String? selectedZoneId;
-  
-  // Temporary list for demonstration
-  List<Zone> zones = [
-    Zone(
-      id: '1',
-      name: 'Zone A',
-      description: 'Production Area',
-      memberIds: ['1', '2', '3'],
-      leaderId: '1',
-    ),
-    Zone(
-      id: '2',
-      name: 'Zone B',
-      description: 'Warehouse',
-      memberIds: ['4', '5', '6'],
-      leaderId: '4',
-    ),
-  ];
+  List<Zone> zones = [];
+  bool isLoading = true;
+  String? error;
 
   List<TrainingMaterial> materials = [
     TrainingMaterial(
@@ -101,6 +89,32 @@ class _ManageTrainingMaterialScreenState extends State<ManageTrainingMaterialScr
   List<TrainingMaterial> get filteredMaterials {
     if (selectedZoneId == null) return materials;
     return materials.where((material) => material.zoneId == selectedZoneId).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadZones();
+  }
+
+  Future<void> _loadZones() async {
+    try {
+      final storage = const FlutterSecureStorage();
+      final orgId = await storage.read(key: 'orgId') ?? '';
+      zones = await _zoneService.getZonesByOrgId(orgId);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -169,7 +183,7 @@ class _ManageTrainingMaterialScreenState extends State<ManageTrainingMaterialScr
             ),
             ...zones.map((zone) => DropdownMenuItem<String>(
                   value: zone.id,
-                  child: Text(zone.name),
+                  child: Text(zone.zoneName),
                 )),
           ],
           onChanged: (value) {
@@ -259,7 +273,7 @@ class _ManageTrainingMaterialScreenState extends State<ManageTrainingMaterialScr
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  zone.name,
+                  zone.zoneName,
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 14,

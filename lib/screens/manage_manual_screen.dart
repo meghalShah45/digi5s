@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../models/manual.dart';
 import '../models/zone.dart';
 import '../theme/colors.dart';
+import '../services/zone_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ManageManualScreen extends StatefulWidget {
   const ManageManualScreen({Key? key}) : super(key: key);
@@ -12,23 +14,11 @@ class ManageManualScreen extends StatefulWidget {
 }
 
 class _ManageManualScreenState extends State<ManageManualScreen> {
+  final ZoneService _zoneService = ZoneService();
   String? selectedZoneId;
-  List<Zone> zones = [
-    Zone(
-      id: '1',
-      name: 'Zone A',
-      description: 'Production Area',
-      memberIds: ['1', '2', '3'],
-      leaderId: '1',
-    ),
-    Zone(
-      id: '2',
-      name: 'Zone B',
-      description: 'Warehouse',
-      memberIds: ['4', '5', '6'],
-      leaderId: '4',
-    ),
-  ];
+  List<Zone> zones = [];
+  bool isLoading = true;
+  String? error;
 
   List<Manual> manuals = [
     Manual(
@@ -58,6 +48,32 @@ class _ManageManualScreenState extends State<ManageManualScreen> {
   List<Manual> get filteredManuals {
     if (selectedZoneId == null) return manuals;
     return manuals.where((manual) => manual.zoneId == selectedZoneId).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadZones();
+  }
+
+  Future<void> _loadZones() async {
+    try {
+      final storage = const FlutterSecureStorage();
+      final orgId = await storage.read(key: 'orgId') ?? '';
+      zones = await _zoneService.getZonesByOrgId(orgId);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -113,7 +129,35 @@ class _ManageManualScreenState extends State<ManageManualScreen> {
   }
 
   Widget _buildZoneDropdown() {
-    return Container();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedZoneId,
+          hint: const Text('Select Zone'),
+          isExpanded: true,
+          items: [
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text('All Zones'),
+            ),
+            ...zones.map((zone) => DropdownMenuItem<String>(
+                  value: zone.id,
+                  child: Text(zone.zoneName),
+                )),
+          ],
+          onChanged: (value) {
+            setState(() {
+              selectedZoneId = value;
+            });
+          },
+        ),
+      ),
+    );
   }
 
   Widget _buildHeader() {
@@ -188,7 +232,7 @@ class _ManageManualScreenState extends State<ManageManualScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  zone.name,
+                  zone.zoneName,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey[600],

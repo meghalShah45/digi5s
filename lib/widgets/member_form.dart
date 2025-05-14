@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../theme/colors.dart';
 
 class MemberForm extends StatefulWidget {
   final bool showZoneDropdown;
   final Function(Map<String, dynamic>) onSubmit;
   final Map<String, dynamic>? initialData;
+  final String zoneId;
+  final String orgId;
   
   const MemberForm({
     Key? key, 
     this.showZoneDropdown = true,
     required this.onSubmit,
     this.initialData,
+    required this.zoneId,
+    required this.orgId,
   }) : super(key: key);
 
   @override
@@ -25,11 +31,12 @@ class _MemberFormState extends State<MemberForm> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _designationController = TextEditingController();
-  final TextEditingController _contactController = TextEditingController();
-  String? _photoUrl;
+  final TextEditingController _phoneController = TextEditingController();
+  File? _selectedImage;
+  final ImagePicker _picker = ImagePicker();
 
   final List<String> zones = ['Zone A', 'Zone B', 'Zone C']; // Replace with actual zones
-  final List<String> roles = ['Member', 'Leader', 'Viewer']; // Replace with actual roles
+  final List<String> roles = ['ZONE-LEADER', 'ZONE-MEMBER', 'VIEWER'];
 
   @override
   void initState() {
@@ -41,8 +48,31 @@ class _MemberFormState extends State<MemberForm> {
       _emailController.text = widget.initialData!['email'] ?? '';
       _passwordController.text = widget.initialData!['password'] ?? '';
       _designationController.text = widget.initialData!['designation'] ?? '';
-      _contactController.text = widget.initialData!['contact'] ?? '';
-      _photoUrl = widget.initialData!['photo'];
+      _phoneController.text = widget.initialData!['phoneNumber'] ?? '';
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking image: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -52,98 +82,194 @@ class _MemberFormState extends State<MemberForm> {
     _emailController.dispose();
     _passwordController.dispose();
     _designationController.dispose();
-    _contactController.dispose();
+    _phoneController.dispose();
     super.dispose();
-  }
-
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      final memberData = {
-        if (widget.showZoneDropdown) 'zone': selectedZone,
-        'role': selectedRole,
-        'name': _nameController.text,
-        'email': _emailController.text,
-        'password': _passwordController.text,
-        'designation': _designationController.text,
-        'contact': _contactController.text,
-        'photo': _photoUrl,
-      };
-      widget.onSubmit(memberData);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Form(
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 20,
+        left: 20,
+        right: 20,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
       key: _formKey,
       child: Column(
+            mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.showZoneDropdown) ...[
-            _buildDropdown(
-              'Select Zone',
-              zones,
-              selectedZone,
-              (value) => setState(() => selectedZone = value),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Add New Member',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
             ),
-            const SizedBox(height: 16),
-          ],
-          _buildDropdown(
-            'Select Role',
-            roles,
-            selectedRole,
-            (value) => setState(() => selectedRole = value),
+              const SizedBox(height: 20),
+              // Profile Image
+              Center(
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary,
+                      shape: BoxShape.circle,
+                      image: _selectedImage != null
+                          ? DecorationImage(
+                              image: FileImage(_selectedImage!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: _selectedImage == null
+                        ? const Icon(Icons.add_a_photo, size: 40, color: AppColors.primary)
+                        : null,
+                  ),
+                ),
           ),
-          const SizedBox(height: 16),
-          _buildTextField(
+              const SizedBox(height: 20),
+
+              // Full Name
+              TextFormField(
             controller: _nameController,
-            label: 'Contact Person Name',
-            validator: (value) =>
-                value?.isEmpty ?? true ? 'Please enter name' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  prefixIcon: Icon(Icons.person),
+                ),
+                validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
           ),
           const SizedBox(height: 16),
-          _buildTextField(
+
+              // Email
+              TextFormField(
             controller: _emailController,
-            label: 'Email ID',
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                ),
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
-              if (value?.isEmpty ?? true) return 'Please enter email';
+                  if (value?.isEmpty ?? true) return 'Required';
               if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
-                return 'Please enter valid email';
+                    return 'Please enter a valid email';
               }
               return null;
             },
           ),
           const SizedBox(height: 16),
-          _buildTextField(
+
+              // Password
+              TextFormField(
             controller: _passwordController,
-            label: 'Password',
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock),
+                ),
             obscureText: true,
-            validator: (value) =>
-                value?.isEmpty ?? true ? 'Please enter password' : null,
+                validator: (value) {
+                  if (value?.isEmpty ?? true) return 'Required';
+                  if (value!.length < 6) return 'Password must be at least 6 characters';
+                  return null;
+                },
           ),
           const SizedBox(height: 16),
-          _buildPhotoUpload(),
+
+              // Phone Number
+              TextFormField(
+                controller: _phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  prefixIcon: Icon(Icons.phone),
+                ),
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value?.isEmpty ?? true) return 'Required';
+                  if (!RegExp(r'^\d{10}$').hasMatch(value!)) {
+                    return 'Please enter a valid 10-digit phone number';
+                  }
+                  return null;
+                },
+              ),
           const SizedBox(height: 16),
-          _buildTextField(
+
+              // Designation
+              TextFormField(
             controller: _designationController,
-            label: 'Your Designation',
-            validator: (value) =>
-                value?.isEmpty ?? true ? 'Please enter designation' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Designation',
+                  prefixIcon: Icon(Icons.work),
+                ),
+                validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
           ),
           const SizedBox(height: 16),
-          _buildTextField(
-            controller: _contactController,
-            label: 'Contact No',
-            keyboardType: TextInputType.phone,
-            validator: (value) =>
-                value?.isEmpty ?? true ? 'Please enter contact number' : null,
+
+              // Role Dropdown
+              DropdownButtonFormField<String>(
+                value: selectedRole,
+                decoration: const InputDecoration(
+                  labelText: 'Role',
+                  prefixIcon: Icon(Icons.assignment_ind),
+                ),
+                items: roles.map((role) {
+                  return DropdownMenuItem(
+                    value: role,
+                    child: Text(role),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedRole = value;
+                  });
+                },
+                validator: (value) => value == null ? 'Required' : null,
           ),
           const SizedBox(height: 24),
+
+              // Submit Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _submitForm,
+                  onPressed: () {
+                    if (_formKey.currentState!.validate() && _selectedImage != null) {
+                      widget.onSubmit({
+                        'fullName': _nameController.text,
+                        'email': _emailController.text,
+                        'password': _passwordController.text,
+                        'phoneNumber': _phoneController.text,
+                        'designation': _designationController.text,
+                        'role': selectedRole,
+                        'signupType': 'LOCAL',
+                        'file': _selectedImage,
+                      });
+                    } else if (_selectedImage == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please select a profile image'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -152,156 +278,20 @@ class _MemberFormState extends State<MemberForm> {
                 ),
               ),
               child: const Text(
-                'Submit',
+                    'Add Member',
                 style: TextStyle(
+                      color: AppColors.secondaryLight,
                   fontSize: 16,
-                  color: AppColors.secondaryLight,
-                  fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.bold,
                 ),
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDropdown(
-    String label,
-    List<String> items,
-    String? value,
-    Function(String?) onChanged,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              hint: Text(label),
-              items: items.map((String item) {
-                return DropdownMenuItem(
-                  value: item,
-                  child: Text(item),
-                );
-              }).toList(),
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    bool obscureText = false,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          validator: validator,
-          decoration: InputDecoration(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPhotoUpload() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Photo',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: () {
-            // Implement photo upload functionality
-          },
-          child: Container(
-            height: 100,
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.border),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: _photoUrl != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      _photoUrl!,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_photo_alternate_outlined,
-                        size: 32,
-                        color: AppColors.textLight,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Upload Photo',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
-                        ),
-                      ),
+              const SizedBox(height: 20),
                     ],
                   ),
           ),
         ),
-      ],
     );
   }
 } 

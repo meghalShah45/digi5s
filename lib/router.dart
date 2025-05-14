@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:seicho_app/screens/home_screen.dart';
 import 'package:seicho_app/screens/manage_news_screen.dart';
-import 'package:seicho_app/screens/manage_zone_screen.dart';
-import 'package:seicho_app/screens/add_zone_screen.dart';
+import 'package:seicho_app/screens/zones/manage_zone_screen.dart';
+import 'package:seicho_app/screens/zones/add_zone_screen.dart';
 import 'package:seicho_app/screens/manage_members_screen.dart';
 import 'package:seicho_app/screens/manage_red_tags_screen.dart';
 import 'package:seicho_app/screens/red_tag_details_screen.dart';
@@ -34,10 +34,16 @@ import 'screens/add_organization_screen.dart';
 import 'screens/active_organizations_screen.dart';
 import 'screens/manage_org_info_screen.dart';
 import '../models/organization.dart';
+import 'screens/login_screen.dart';
+import 'screens/red_tag_list_screen.dart';
 
 final router = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/login',
   routes: [
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => const LoginScreen(),
+    ),
     GoRoute(
       path: '/',
       builder: (context, state) => const ModuleSelectionScreen(),
@@ -86,7 +92,8 @@ final router = GoRouter(
     GoRoute(
       path: '/add-zone',
       builder: (BuildContext context, GoRouterState state) {
-        return const AddZoneScreen();
+        final orgId = state.extra as String?;
+        return AddZoneScreen(orgId: orgId ?? '');
       },
     ),
     GoRoute(
@@ -99,7 +106,12 @@ final router = GoRouter(
       path: '/manage-members/:zoneName',
       builder: (BuildContext context, GoRouterState state) {
         final zoneName = state.pathParameters['zoneName'] ?? '';
-        return ManageMembersScreen(zoneName: zoneName);
+        final zoneId = state.extra as Map<String, dynamic>?;
+        return ManageMembersScreen(
+          zoneName: zoneName,
+          zoneId: zoneId?['zoneId'] ?? '',
+          orgId: zoneId?['orgId'] ?? '',
+        );
       },
     ),
     GoRoute(
@@ -108,7 +120,7 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/create-red-tag',
-      builder: (context, state) => const CreateRedTagScreen(),
+      builder: (context, state) => const CreateRedTagScreenWrapper(),
     ),
     GoRoute(
       path: '/view-red-tag-list',
@@ -182,6 +194,13 @@ final router = GoRouter(
       builder: (context, state) {
         final sheet = state.extra as AuditSheet;
         return PerformAuditDetailScreen(sheet: sheet);
+      },
+    ),
+    GoRoute(
+      path: '/red-tags/:orgId',
+      builder: (context, state) {
+        final orgId = state.pathParameters['orgId'] ?? '';
+        return RedTagListScreen(orgId: orgId);
       },
     ),
   ],

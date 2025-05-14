@@ -2,7 +2,9 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/zone.dart';
+import '../services/zone_service.dart';
 import '../theme/colors.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class BestPractice {
   final String id;
@@ -49,37 +51,18 @@ class BestPractice {
 }
 
 class ManageBestPracticesScreen extends StatefulWidget {
-  const ManageBestPracticesScreen({super.key});
+  const ManageBestPracticesScreen({Key? key}) : super(key: key);
 
   @override
   State<ManageBestPracticesScreen> createState() => _ManageBestPracticesScreenState();
 }
 
 class _ManageBestPracticesScreenState extends State<ManageBestPracticesScreen> {
+  final ZoneService _zoneService = ZoneService();
   String? selectedZoneId;
-  final List<Zone> zones = [
-    Zone(
-      id: '1',
-      name: 'Zone A',
-      description: 'First zone',
-      memberIds: ['1', '2', '3'],
-      leaderId: '1',
-    ),
-    Zone(
-      id: '2',
-      name: 'Zone B',
-      description: 'Second zone',
-      memberIds: ['4', '5', '6'],
-      leaderId: '4',
-    ),
-    Zone(
-      id: '3',
-      name: 'Zone C',
-      description: 'Third zone',
-      memberIds: ['7', '8', '9'],
-      leaderId: '7',
-    ),
-  ];
+  List<Zone> zones = [];
+  bool isLoading = true;
+  String? error;
 
   final List<BestPractice> bestPractices = [
     BestPractice(
@@ -102,6 +85,32 @@ class _ManageBestPracticesScreenState extends State<ManageBestPracticesScreen> {
     ),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadZones();
+  }
+
+  Future<void> _loadZones() async {
+    try {
+      final storage = const FlutterSecureStorage();
+      final orgId = await storage.read(key: 'orgId') ?? '';
+      zones = await _zoneService.getZonesByOrgId(orgId);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      }
+    }
+  }
+
   List<BestPractice> get filteredBestPractices {
     if (selectedZoneId == null) return bestPractices;
     return bestPractices.where((bp) => bp.zoneId == selectedZoneId).toList();
@@ -113,89 +122,93 @@ class _ManageBestPracticesScreenState extends State<ManageBestPracticesScreen> {
       appBar: AppBar(
         title: const Text('Manage Best Practices'),
       ),
-      body: filteredBestPractices.isEmpty
-          ? const Center(
-              child: Text('No best practices available for this zone'),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: filteredBestPractices.length,
-              itemBuilder: (context, index) {
-                final practice = filteredBestPractices[index];
-                final zone = zones.firstWhere((z) => z.id == practice.zoneId);
-                
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (practice.imageUrl != null)
-                        Image.network(
-                          practice.imageUrl!,
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    practice.title,
-                                    style: Theme.of(context).textTheme.titleLarge,
-                                  ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : error != null
+              ? Center(child: Text(error!))
+              : filteredBestPractices.isEmpty
+                  ? const Center(
+                      child: Text('No best practices available for this zone'),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16.0),
+                      itemCount: filteredBestPractices.length,
+                      itemBuilder: (context, index) {
+                        final practice = filteredBestPractices[index];
+                        final zone = zones.firstWhere((z) => z.id == practice.zoneId);
+                        
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (practice.imageUrl != null)
+                                Image.network(
+                                  practice.imageUrl!,
+                                  height: 200,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
                                 ),
-                                PopupMenuButton<String>(
-                                  onSelected: (value) {
-                                    if (value == 'edit') {
-                                      _showAddBestPracticeSheet(
-                                        context,
-                                        existingPractice: practice,
-                                      );
-                                    } else if (value == 'delete') {
-                                      _showDeleteConfirmation(practice);
-                                    }
-                                  },
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text('Edit'),
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            practice.title,
+                                            style: Theme.of(context).textTheme.titleLarge,
+                                          ),
+                                        ),
+                                        PopupMenuButton<String>(
+                                          onSelected: (value) {
+                                            if (value == 'edit') {
+                                              _showAddBestPracticeSheet(
+                                                context,
+                                                existingPractice: practice,
+                                              );
+                                            } else if (value == 'delete') {
+                                              _showDeleteConfirmation(practice);
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'edit',
+                                              child: Text('Edit'),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'delete',
+                                              child: Text('Delete'),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('Delete'),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Zone: ${zone.zoneName}',
+                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(practice.description),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      children: practice.tags.map((tag) => Chip(
+                                        label: Text(tag),
+                                        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                                      )).toList(),
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Zone: ${zone.name}',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(practice.description),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              children: practice.tags.map((tag) => Chip(
-                                label: Text(tag),
-                                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                              )).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           _showAddBestPracticeSheet(context);
@@ -257,6 +270,38 @@ class _ManageBestPracticesScreenState extends State<ManageBestPracticesScreen> {
         bestPractices.removeWhere((bp) => bp.id == practice.id);
       });
     }
+  }
+
+  Widget _buildZoneDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedZoneId,
+          hint: const Text('Select Zone'),
+          isExpanded: true,
+          items: [
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text('All Zones'),
+            ),
+            ...zones.map((zone) => DropdownMenuItem<String>(
+                  value: zone.id,
+                  child: Text(zone.zoneName),
+                )),
+          ],
+          onChanged: (value) {
+            setState(() {
+              selectedZoneId = value;
+            });
+          },
+        ),
+      ),
+    );
   }
 }
 
@@ -366,7 +411,7 @@ class _AddBestPracticeSheetState extends State<AddBestPracticeSheet> {
               ),
               items: widget.zones.map((zone) => DropdownMenuItem<String>(
                 value: zone.id,
-                child: Text(zone.name),
+                child: Text(zone.zoneName),
               )).toList(),
               onChanged: (value) {
                 setState(() {

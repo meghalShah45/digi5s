@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/red_tag.dart';
-import '../models/zone.dart';
+import '../services/red_tag_service.dart';
+import '../theme/colors.dart';
 
 class RedTagDetailsScreen extends StatefulWidget {
   final String tagId;
@@ -15,41 +16,99 @@ class RedTagDetailsScreen extends StatefulWidget {
 }
 
 class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
-  late RedTag redTag;
+  final RedTagService _redTagService = RedTagService();
+  RedTag? _redTag;
+  bool _isLoading = true;
+  String? _error;
   final _remarksController = TextEditingController();
-  final _decisionController = TextEditingController();
-  late Zone zone;
 
   @override
   void initState() {
     super.initState();
-    // TODO: Fetch actual red tag data
-    redTag = RedTag(
-      id: widget.tagId,
-      title: 'Machine Maintenance Issue',
-      description: 'Critical maintenance required for Machine A in Zone 1',
-      dateCreated: DateTime.now(),
-      status: 'pending',
-      zoneId: '1',
-      createdById: '1',
-    );
+    _loadRedTag();
+  }
 
-    // TODO: Fetch actual zone data
-    zone = Zone(
-      id: '1',
-      name: 'Zone A',
-      description: 'Production Area',
-      memberIds: ['1', '2', '3'],
-      leaderId: '1',
-    );
+  Future<void> _loadRedTag() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      // TODO: Add getRedTagById method to RedTagService
+      // For now, we'll use the existing red tag from the list
+      final redTags = await _redTagService.getRedTags('');
+      final redTag = redTags.firstWhere((tag) => tag.id == widget.tagId);
+      
+      setState(() {
+        _redTag = redTag;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _updateStatus(String newStatus) async {
+    if (_redTag == null) return;
+
+    try {
+      await _redTagService.updateRedTagStatus(
+        _redTag!.id,
+        newStatus,
+        _remarksController.text,
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Status updated successfully')),
+        );
+        _loadRedTag(); // Reload the red tag data
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating status: $e')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null || _redTag == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: ${_error ?? "Red tag not found"}'),
+              ElevatedButton(
+                onPressed: _loadRedTag,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Red Tag Details'),
+        backgroundColor: AppColors.surface,
+        elevation: 0.5,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -60,11 +119,11 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
             const SizedBox(height: 24),
             _buildZoneSection(),
             const SizedBox(height: 24),
-            _buildDecisionSection(),
-            const SizedBox(height: 24),
-            _buildRemarksSection(),
-            const SizedBox(height: 32),
-            _buildSubmitButton(),
+            _buildActivitySection(),
+            if (_redTag!.status == 'PENDING') ...[
+              const SizedBox(height: 24),
+              _buildUpdateSection(),
+            ],
           ],
         ),
       ),
@@ -83,27 +142,37 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    redTag.title,
+                    _redTag!.description,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                _buildStatusChip(redTag.status),
+                _buildStatusChip(_redTag!.status),
               ],
             ),
             const SizedBox(height: 16),
+            if (_redTag!.remarks != null) ...[
+              Text(
+                'Remarks: ${_redTag!.remarks}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Text(
-              redTag.description,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.black87,
+              'Created by: ${_redTag!.email}',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Text(
-              'Created on: ${_formatDate(redTag.dateCreated)}',
+              'Created on: ${_formatDate(_redTag!.createdAt)}',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
@@ -130,28 +199,11 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  zone.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
             Text(
-              zone.description,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+              'Zone: ${_redTag!.zoneName}',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
               ),
             ),
           ],
@@ -160,7 +212,7 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
     );
   }
 
-  Widget _buildDecisionSection() {
+  Widget _buildActivitySection() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -168,28 +220,37 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Steering Committee Decision',
+              'Activity History',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _decisionController,
-              decoration: const InputDecoration(
-                hintText: 'Enter committee decision',
-                border: OutlineInputBorder(),
+            if (_redTag!.activity.isEmpty)
+              const Text('No activity recorded')
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _redTag!.activity.length,
+                itemBuilder: (context, index) {
+                  final activity = _redTag!.activity[index];
+                  return ListTile(
+                    title: Text(activity.description),
+                    subtitle: Text(
+                      '${activity.status} by ${activity.actionBy} on ${_formatDate(activity.actionOn)}',
+                    ),
+                  );
+                },
               ),
-              maxLines: 3,
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRemarksSection() {
+  Widget _buildUpdateSection() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -197,7 +258,7 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Remarks',
+              'Update Status',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -207,10 +268,34 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
             TextField(
               controller: _remarksController,
               decoration: const InputDecoration(
-                hintText: 'Enter any additional remarks',
+                hintText: 'Enter remarks',
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _updateStatus('APPROVED'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                    ),
+                    child: const Text('Approve'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _updateStatus('REJECTED'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: const Text('Reject'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -218,38 +303,16 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
     );
   }
 
-  Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: _submitDecision,
-        style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: const Text(
-          'Submit Decision',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildStatusChip(String status) {
     Color color;
-    switch (status) {
-      case 'pending':
+    switch (status.toUpperCase()) {
+      case 'PENDING':
         color = Colors.orange;
         break;
-      case 'approved':
+      case 'APPROVED':
         color = Colors.green;
         break;
-      case 'rejected':
+      case 'REJECTED':
         color = Colors.red;
         break;
       default:
@@ -277,31 +340,9 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  void _submitDecision() {
-    if (_decisionController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a decision'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    // TODO: Implement actual submission logic
-    // This would typically involve:
-    // 1. Updating the red tag status
-    // 2. Saving the decision and remarks
-    // 3. Notifying zone members
-    // 4. Updating the UI
-
-    Navigator.pop(context);
-  }
-
   @override
   void dispose() {
     _remarksController.dispose();
-    _decisionController.dispose();
     super.dispose();
   }
 } 
