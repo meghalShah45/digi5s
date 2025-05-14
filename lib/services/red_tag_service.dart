@@ -70,14 +70,15 @@ class RedTagService {
     }
   }
 
-  Future<void> updateRedTagStatus(String redTagId, String newStatus, String remarks) async {
+  Future<void> updateRedTagStatus(String redTagId, String newStatus, String activity, String actionBy) async {
     try {
       final response = await http.put(
-        Uri.parse('$baseUrl/redtags/$redTagId/status'),
+        Uri.parse('$baseUrl/redtags/status/$redTagId'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'status': newStatus,
-          'remarks': remarks,
+          'activity': activity,
+          'actionBy': actionBy,
         }),
       );
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/red_tag.dart';
 import '../services/red_tag_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class RedTagListScreen extends StatefulWidget {
   final String orgId;
@@ -44,8 +45,10 @@ class _RedTagListScreenState extends State<RedTagListScreen> {
   }
 
   Future<void> _updateStatus(RedTag redTag) async {
-    final TextEditingController remarksController = TextEditingController();
-    String selectedStatus = 'APPROVED';
+    final TextEditingController activityController = TextEditingController();
+    String selectedStatus = 'COMPLETED';
+    final storage = const FlutterSecureStorage();
+    final userId = await storage.read(key: 'userId');
 
     await showDialog(
       context: context,
@@ -56,7 +59,7 @@ class _RedTagListScreenState extends State<RedTagListScreen> {
           children: [
             DropdownButtonFormField<String>(
               value: selectedStatus,
-              items: ['APPROVED', 'REJECTED'].map((status) {
+              items: ['COMPLETED', 'REJECTED'].map((status) {
                 return DropdownMenuItem(
                   value: status,
                   child: Text(status),
@@ -70,9 +73,9 @@ class _RedTagListScreenState extends State<RedTagListScreen> {
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: remarksController,
+              controller: activityController,
               decoration: const InputDecoration(
-                labelText: 'Remarks',
+                labelText: 'Activity Description',
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
@@ -86,11 +89,18 @@ class _RedTagListScreenState extends State<RedTagListScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              if (activityController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter activity description')),
+                );
+                return;
+              }
               try {
                 await _redTagService.updateRedTagStatus(
                   redTag.id,
                   selectedStatus,
-                  remarksController.text,
+                  activityController.text,
+                  userId ?? '',
                 );
                 if (mounted) {
                   Navigator.pop(context);

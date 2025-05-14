@@ -70,6 +70,85 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
     }
   }
 
+  Future<void> _updateStatus(RedTag redTag) async {
+    final TextEditingController activityController = TextEditingController();
+    String selectedStatus = 'COMPLETED';
+    final userId = await _storage.read(key: 'userId');
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              value: selectedStatus,
+              items: ['COMPLETED', 'REJECTED'].map((status) {
+                return DropdownMenuItem(
+                  value: status,
+                  child: Text(status),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  selectedStatus = value;
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: activityController,
+              decoration: const InputDecoration(
+                labelText: 'Activity Description',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (activityController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter activity description')),
+                );
+                return;
+              }
+              try {
+                await _redTagService.updateRedTagStatus(
+                  redTag.id,
+                  selectedStatus,
+                  activityController.text,
+                  userId ?? '',
+                );
+                if (mounted) {
+                  Navigator.pop(context);
+                  _loadRedTags();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Status updated successfully')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error updating status: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -101,6 +180,7 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
         title: const Text('Manage Red Tags'),
         backgroundColor: AppColors.surface,
         elevation: 0.5,
+
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: RefreshIndicator(
@@ -112,7 +192,15 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
           itemBuilder: (context, index) {
             final tag = _redTags[index];
             final isPending = tag.status == 'PENDING';
-            final statusColor = isPending ? AppColors.warning.withOpacity(0.2) : AppColors.success.withOpacity(0.2);
+            final isRejected = tag.status == 'REJECTED';
+            Color statusColor;
+            if (isPending) {
+              statusColor = AppColors.warning.withOpacity(0.2);
+            } else if (isRejected) {
+              statusColor = AppColors.error.withOpacity(0.2);
+            } else {
+              statusColor = AppColors.success.withOpacity(0.2);
+            }
             final statusText = isPending ? 'Decision Pending' : tag.status;
 
             return Container(
@@ -146,19 +234,45 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
                     Text('Remarks: ${tag.remarks}'),
                     const SizedBox(height: 10),
                   ],
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isPending ? AppColors.warning : AppColors.success,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      statusText,
-                      style: TextStyle(
-                        color: isPending ? AppColors.textPrimary : AppColors.secondaryDark,
-                        fontWeight: FontWeight.w600,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isPending 
+                              ? AppColors.warning 
+                              : isRejected 
+                                  ? AppColors.error 
+                                  : AppColors.success,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            color: isPending 
+                                ? AppColors.textPrimary 
+                                : isRejected 
+                                    ? AppColors.secondaryLight 
+                                    : AppColors.secondaryDark,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (isPending)
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: () => _updateStatus(tag),
+                              icon: const Icon(Icons.check_circle_outline),
+                              label: const Text('Update Status'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ],
               ),

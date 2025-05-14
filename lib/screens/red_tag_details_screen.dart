@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/red_tag.dart';
 import '../services/red_tag_service.dart';
 import '../theme/colors.dart';
@@ -55,11 +56,15 @@ class _RedTagDetailsScreenState extends State<RedTagDetailsScreen> {
   Future<void> _updateStatus(String newStatus) async {
     if (_redTag == null) return;
 
+    final storage = const FlutterSecureStorage();
+    final userId = await storage.read(key: 'userId');
+
     try {
       await _redTagService.updateRedTagStatus(
         _redTag!.id,
         newStatus,
         _remarksController.text,
+          userId ?? ''
       );
       
       if (mounted) {

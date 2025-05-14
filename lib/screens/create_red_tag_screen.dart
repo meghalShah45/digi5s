@@ -109,7 +109,7 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
               backgroundColor: Colors.green,
             ),
           );
-          context.go('/manage-red-tags');
+          context.push('/manage-red-tags');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
