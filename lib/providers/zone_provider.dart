@@ -26,7 +26,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
       }
 
       final response = await http.get(
-        Uri.parse('https://shark-app-e2lkb.ondigitalocean.app/zones/organisation/$orgId'),
+        Uri.parse('http://localhost:8081/zones/organisation/$orgId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -58,7 +58,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
       }
 
       final response = await http.post(
-        Uri.parse('https://shark-app-e2lkb.ondigitalocean.app/zones'),
+        Uri.parse('http://localhost:8081/zones'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

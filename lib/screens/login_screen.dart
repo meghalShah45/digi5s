@@ -89,7 +89,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('https://shark-app-e2lkb.ondigitalocean.app/users/login'),
+        Uri.parse('http://localhost:8081/users/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': _emailController.text,

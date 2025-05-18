@@ -52,7 +52,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
       await memberService.createOrganizationMember(
         orgId: widget.orgId,
         zoneId: widget.zoneId,
-        roleId: '823e4567-e89b-12d3-a456-426614174204', // Default role ID
+        roleId: 'be40824e-eb13-4a06-89cb-463100ada129', // Default role ID
         fullName: memberData['fullName'],
         email: memberData['email'],
         password: memberData['password'],

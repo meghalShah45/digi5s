@@ -85,7 +85,7 @@ class HomeScreen extends ConsumerWidget {
           const Color(0xFFE8F5E9),
           const Color(0xFF2E7D32),
           Icons.groups_outlined,
-          onTap: () => context.go('/manage-zone'),
+          onTap: () => context.push('/manage-zone'),
         ),
         buildGridItem(
           context,
@@ -101,7 +101,7 @@ class HomeScreen extends ConsumerWidget {
           const Color(0xFFE3F2FD),
           const Color(0xFF1565C0),
           Icons.menu_book_outlined,
-          onTap: () => context.go('/manage-manual'),
+          onTap: () => context.push('/manage-manual'),
         ),
         buildGridItem(
           context,
@@ -109,7 +109,7 @@ class HomeScreen extends ConsumerWidget {
           const Color(0xFFF3E5F5),
           const Color(0xFF7B1FA2),
           Icons.assignment_outlined,
-          onTap: () => context.go('/manage-audit'),
+          onTap: () => context.push('/manage-audit'),
         ),
         buildGridItem(
           context,
@@ -117,7 +117,7 @@ class HomeScreen extends ConsumerWidget {
           const Color(0xFFFFF3E0),  // Light Orange
           const Color(0xFFEF6C00),  // Dark Orange
           Icons.newspaper_outlined,
-          onTap: () => context.go('/manage-news'),
+          onTap: () => context.push('/manage-news'),
         ),
         buildGridItem(
           context,
@@ -125,7 +125,7 @@ class HomeScreen extends ConsumerWidget {
           const Color(0xFFE8EAF6),  // Light Indigo
           const Color(0xFF283593),  // Dark Indigo
           Icons.school_outlined,
-          onTap: () => context.go('/manage-training-material'),
+          onTap: () => context.push('/manage-training-material'),
         ),
         buildGridItem(
           context,
@@ -133,7 +133,7 @@ class HomeScreen extends ConsumerWidget {
           const Color(0xFFE0F2F1),  // Light Teal
           const Color(0xFF00695C),  // Dark Teal
           Icons.upload_file_outlined,
-          onTap: () => context.go('/manage-best-practices'),
+          onTap: () => context.push('/manage-best-practices'),
         ),
         buildGridItem(
           context,
@@ -141,7 +141,7 @@ class HomeScreen extends ConsumerWidget {
           const Color(0xFFFFEBEE),  // Light Red
           const Color(0xFFC62828),  // Dark Red
           Icons.flash_on_outlined,
-          onTap: () => context.go('/flash-news'),
+          onTap: () => context.push('/flash-news'),
         ),
       ],
     );
@@ -198,7 +198,7 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildSpeedDial(BuildContext context) {
     return ElevatedButton(
       child: const Text('Add Committee Member', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w700),),
-      onPressed: () => context.go('/manage-steering-committee'),
+      onPressed: () => context.push('/manage-steering-committee'),
       // backgroundColor: Colors.green,
       // icon: const Icon(Icons.add),
       // label: ,

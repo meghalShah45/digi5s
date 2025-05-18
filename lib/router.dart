@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:seicho_app/screens/home_screen.dart';
-import 'package:seicho_app/screens/manage_news_screen.dart';
 import 'package:seicho_app/screens/zones/manage_zone_screen.dart';
 import 'package:seicho_app/screens/zones/add_zone_screen.dart';
 import 'package:seicho_app/screens/manage_members_screen.dart';
-import 'package:seicho_app/screens/manage_red_tags_screen.dart';
 import 'package:seicho_app/screens/red_tag_details_screen.dart';
-import 'package:seicho_app/screens/manage_manual_screen.dart';
+import 'package:seicho_app/features/manuals/screens/manage_manual_screen.dart';
 import 'package:seicho_app/screens/manage_audit_screen.dart';
 import 'package:seicho_app/screens/steering_committee_screen.dart';
-import 'package:seicho_app/screens/manage_training_material_screen.dart';
+import 'features/news/screens/manage_news_screen.dart';
+import 'features/training_material/screens/manage_training_material_screen.dart';
 import 'screens/flash_news_screen.dart';
 import 'screens/manage_best_practices_screen.dart';
 import 'screens/module_selection_screen.dart';
@@ -22,9 +20,10 @@ import 'screens/manage_5s_tasks_screen.dart';
 import 'screens/create_5s_task_screen.dart';
 import 'screens/approve_5s_task_screen.dart';
 import 'screens/my_5s_tasks_screen.dart';
-import 'screens/manage_red_tags_main_screen.dart';
-import 'screens/create_red_tag_screen.dart';
-import 'screens/view_red_tag_list_screen.dart';
+import 'features/red_tags/screens/manage_red_tags_main_screen.dart';
+import 'features/red_tags/screens/create_red_tag_screen.dart';
+import 'features/red_tags/screens/view_red_tag_list_screen.dart';
+import 'features/red_tags/screens/red_tag_list_screen.dart';
 import 'screens/ss_training_material_screen.dart';
 import 'screens/perform_audit_screen.dart';
 import 'screens/perform_audit_detail_screen.dart';
@@ -35,7 +34,6 @@ import 'screens/active_organizations_screen.dart';
 import 'screens/manage_org_info_screen.dart';
 import '../models/organization.dart';
 import 'screens/login_screen.dart';
-import 'screens/red_tag_list_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/login',

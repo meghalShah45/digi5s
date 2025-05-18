@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../models/red_tag.dart';
-import '../services/red_tag_service.dart';
+import '../features/red_tags/models/red_tag.dart';
+import '../features/red_tags/services/red_tag_service.dart';
 import '../theme/colors.dart';
 
 class RedTagDetailsScreen extends StatefulWidget {

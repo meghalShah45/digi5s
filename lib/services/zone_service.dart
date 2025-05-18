@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/zone.dart';
 
 class ZoneService {
-  final String baseUrl = 'https://shark-app-e2lkb.ondigitalocean.app';
+  final String baseUrl = 'http://localhost:8081';
 
   Future<List<Zone>> getZonesByOrgId(String orgId) async {
     try {

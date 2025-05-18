@@ -4,7 +4,7 @@ import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
 
 class MemberService {
-  static const String baseUrl = 'http://localhost:8080';
+  static const String baseUrl = 'http://localhost:8081';
 
   Future<Map<String, dynamic>> createOrganizationMember({
     required String orgId,

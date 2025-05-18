@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../models/red_tag.dart';
+import '../features/red_tags/models/red_tag.dart';
+import '../features/red_tags/services/red_tag_service.dart';
 import '../models/zone.dart';
 import '../theme/colors.dart';
-import '../services/red_tag_service.dart';
 
 class ManageRedTagsScreen extends StatefulWidget {
   final String orgId;
