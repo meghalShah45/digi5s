@@ -99,4 +99,25 @@ class MemberService {
       throw Exception('Error fetching members: $e');
     }
   }
+
+  Future<List<Map<String, dynamic>>> getRoles() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/roles'),
+        headers: {
+          'accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['statusCode'] == 200) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+      }
+      throw Exception('Failed to fetch roles: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Error fetching roles: $e');
+    }
+  }
 } 

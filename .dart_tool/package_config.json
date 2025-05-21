@@ -44,6 +44,18 @@
       "languageVersion": "3.1"
     },
     {
+      "name": "dio",
+      "rootUri": "file:///Users/meghal/.pub-cache/hosted/pub.dev/dio-5.8.0+1",
+      "packageUri": "lib/",
+      "languageVersion": "2.18"
+    },
+    {
+      "name": "dio_web_adapter",
+      "rootUri": "file:///Users/meghal/.pub-cache/hosted/pub.dev/dio_web_adapter-2.1.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
       "name": "dotted_border",
       "rootUri": "file:///Users/meghal/.pub-cache/hosted/pub.dev/dotted_border-2.1.0",
       "packageUri": "lib/",
@@ -518,7 +530,7 @@
       "languageVersion": "3.0"
     }
   ],
-  "generated": "2025-05-17T18:30:09.957150Z",
+  "generated": "2025-05-21T11:54:22.131787Z",
   "generator": "pub",
   "generatorVersion": "3.5.2",
   "flutterRoot": "file:///Users/meghal/development/flutter",

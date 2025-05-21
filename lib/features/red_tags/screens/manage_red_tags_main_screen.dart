@@ -4,6 +4,7 @@ import '../../../theme/colors.dart';
 import '../models/red_tag.dart';
 import '../services/red_tag_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:intl/intl.dart';
 
 class ManageRedTagsMainScreen extends StatefulWidget {
   const ManageRedTagsMainScreen({super.key});
@@ -19,6 +20,7 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
   bool _isLoading = true;
   String? _error;
   String? _orgId;
+  String? _userId;
 
   @override
   void initState() {
@@ -29,6 +31,7 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
   Future<void> _loadOrgId() async {
     try {
       final orgId = await _storage.read(key: 'orgId');
+      final userId = await _storage.read(key: 'userId');
       if (orgId == null) {
         setState(() {
           _error = 'Organization ID not found';
@@ -38,6 +41,7 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
       }
       setState(() {
         _orgId = orgId;
+        _userId = userId;
       });
       _loadRedTags();
     } catch (e) {
@@ -70,83 +74,137 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
     }
   }
 
-  Future<void> _updateStatus(RedTag redTag) async {
-    final TextEditingController activityController = TextEditingController();
-    String selectedStatus = 'COMPLETED';
-    final userId = await _storage.read(key: 'userId');
+  Future<void> _deleteRedTag(RedTag redTag) async {
+    try {
+      final response = await _redTagService.deleteRedTag(redTag.id);
+      await _loadRedTags();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response ?? 'Red tag deleted successfully'),
+            backgroundColor: response?.contains('Error') == true ? Colors.red : Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting red tag: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showEditDialog(RedTag redTag) async {
+    final descriptionController = TextEditingController(text: redTag.description);
+    final remarksController = TextEditingController(text: redTag.remarks ?? '');
+    String selectedStatus = redTag.status;
 
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Update Status'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<String>(
-              value: selectedStatus,
-              items: ['COMPLETED', 'REJECTED'].map((status) {
-                return DropdownMenuItem(
-                  value: status,
-                  child: Text(status),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  selectedStatus = value;
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: activityController,
-              decoration: const InputDecoration(
-                labelText: 'Activity Description',
-                border: OutlineInputBorder(),
+        title: const Text('Edit Red Tag'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
               ),
-              maxLines: 3,
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextField(
+                controller: remarksController,
+                decoration: const InputDecoration(labelText: 'Remarks'),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: selectedStatus,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: ['PENDING', 'APPROVED', 'REJECTED'].map((status) {
+                  return DropdownMenuItem(
+                    value: status,
+                    child: Text(status),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    selectedStatus = value;
+                  }
+                },
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () async {
-              if (activityController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter activity description')),
-                );
-                return;
-              }
               try {
-                await _redTagService.updateRedTagStatus(
+                await _redTagService.updateRedTag(
                   redTag.id,
-                  selectedStatus,
-                  activityController.text,
-                  userId ?? '',
+                  description: descriptionController.text,
+                  path: redTag.path,
+                  status: selectedStatus,
+                  remarks: remarksController.text,
+                  modifiedBy: _userId ?? '',
                 );
                 if (mounted) {
                   Navigator.pop(context);
-                  _loadRedTags();
+                  await _loadRedTags();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Status updated successfully')),
+                    const SnackBar(
+                      content: Text('Red tag updated successfully'),
+                      backgroundColor: Colors.green,
+                    ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error updating status: $e')),
+                    SnackBar(
+                      content: Text('Error updating red tag: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
             },
-            child: const Text('Update'),
+            child: const Text('Save'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _showDeleteConfirmation(RedTag redTag) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Red Tag'),
+        content: const Text('Are you sure you want to delete this red tag?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteRedTag(redTag);
+    }
   }
 
   @override
@@ -180,7 +238,6 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
         title: const Text('Manage Red Tags'),
         backgroundColor: AppColors.surface,
         elevation: 0.5,
-
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: RefreshIndicator(
@@ -259,19 +316,40 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
                           ),
                         ),
                       ),
-                      if (isPending)
-                        Row(
-                          children: [
-                            TextButton.icon(
-                              onPressed: () => _updateStatus(tag),
-                              icon: const Icon(Icons.check_circle_outline),
-                              label: const Text('Update Status'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primary,
-                              ),
+                      PopupMenuButton<String>(
+                        onSelected: (value) {
+                          switch (value) {
+                            case 'edit':
+                              _showEditDialog(tag);
+                              break;
+                            case 'delete':
+                              _showDeleteConfirmation(tag);
+                              break;
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit),
+                                SizedBox(width: 8),
+                                Text('Edit'),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Delete', style: TextStyle(color: Colors.red)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ],
@@ -281,8 +359,8 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primary,
         onPressed: () => context.push('/create-red-tag'),
+        backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),
       ),
     );

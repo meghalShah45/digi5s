@@ -28,7 +28,11 @@ class _ManageTrainingMaterialScreenState extends ConsumerState<ManageTrainingMat
   void initState() {
     super.initState();
     _loadZones();
-    Future.microtask(() => ref.read(trainingMaterialsProvider.notifier).loadTrainingMaterials());
+    Future.microtask(() {
+      if (mounted) {
+        ref.read(trainingMaterialsProvider.notifier).loadTrainingMaterials();
+      }
+    });
   }
 
   Future<void> _loadZones() async {
@@ -53,7 +57,8 @@ class _ManageTrainingMaterialScreenState extends ConsumerState<ManageTrainingMat
 
   @override
   Widget build(BuildContext context) {
-    final materialsState = ref.watch(trainingMaterialsProvider);
+    final materials = ref.watch(trainingMaterialsProvider);
+    final notifier = ref.watch(trainingMaterialsProvider.notifier);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
@@ -76,13 +81,11 @@ class _ManageTrainingMaterialScreenState extends ConsumerState<ManageTrainingMat
               ),
             ),
             Expanded(
-              child: materialsState.when(
-                data: (materials) => _buildMaterialList(materials),
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Text('Error: $error'),
-                ),
-              ),
+              child: notifier.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : notifier.error != null
+                      ? Center(child: Text('Error: ${notifier.error}'))
+                      : _buildMaterialList(materials),
             ),
           ],
         ),
@@ -152,33 +155,103 @@ class _ManageTrainingMaterialScreenState extends ConsumerState<ManageTrainingMat
   }
 
   Widget _buildMaterialList(List<TrainingMaterial> materials) {
-    return ListView.builder(
-      itemCount: materials.length,
-      itemBuilder: (context, index) {
-        final material = materials[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: ListTile(
-            leading: Image.network(
-              material.path,
-              width: 50,
-              height: 50,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.image_not_supported);
-              },
-            ),
-            title: Text(material.materialType),
-            subtitle: Text('Created by: ${material.createdBy}'),
-            trailing: Text(
-              material.approved ? 'Approved' : 'Pending',
-              style: TextStyle(
-                color: material.approved ? Colors.green : Colors.orange,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 70.0),
+      child: ListView.builder(
+        itemCount: materials.length,
+        itemBuilder: (context, index) {
+          final material = materials[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            child: ListTile(
+              leading: Image.network(
+                material.path,
+                width: 50,
+                height: 50,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(Icons.image_not_supported);
+                },
+              ),
+              title: Text(material.materialType),
+              subtitle: Text('Created by: ${material.createdBy}'),
+              trailing: PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'edit') {
+                    _showEditBottomSheet(context, material);
+                  } else if (value == 'delete') {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Material'),
+                        content: const Text('Are you sure you want to delete this material?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true && mounted) {
+                      try {
+                        // Optimistically remove the item from the list
+                        final currentMaterials = ref.read(trainingMaterialsProvider);
+                        ref.read(trainingMaterialsProvider.notifier).state = 
+                            currentMaterials.where((m) => m.id != material.id).toList();
+                        
+                        // Then perform the actual deletion
+                        await ref.read(trainingMaterialsProvider.notifier).deleteTrainingMaterial(material.id);
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Material deleted successfully')),
+                          );
+                        }
+                      } catch (e) {
+                        // If deletion fails, reload the list to restore the item
+                        ref.read(trainingMaterialsProvider.notifier).loadTrainingMaterials();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error deleting material: $e')),
+                          );
+                        }
+                      }
+                    }
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit),
+                        SizedBox(width: 8),
+                        Text('Edit'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Delete', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -190,6 +263,17 @@ class _ManageTrainingMaterialScreenState extends ConsumerState<ManageTrainingMat
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => const UploadMaterialSheet(),
+    );
+  }
+
+  void _showEditBottomSheet(BuildContext context, TrainingMaterial material) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => EditMaterialSheet(material: material),
     );
   }
 }
@@ -250,7 +334,7 @@ class _UploadMaterialSheetState extends ConsumerState<UploadMaterialSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final materialsState = ref.watch(trainingMaterialsProvider);
+    final notifier = ref.watch(trainingMaterialsProvider.notifier);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -299,10 +383,188 @@ class _UploadMaterialSheetState extends ConsumerState<UploadMaterialSheet> {
               foregroundColor: AppColors.secondary,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            onPressed: materialsState.isLoading ? null : _uploadMaterial,
-            child: materialsState.isLoading
+            onPressed: notifier.isLoading ? null : _uploadMaterial,
+            child: notifier.isLoading
                 ? const CircularProgressIndicator()
                 : const Text('Upload Material'),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _materialTypeController.dispose();
+    super.dispose();
+  }
+}
+
+class EditMaterialSheet extends ConsumerStatefulWidget {
+  final TrainingMaterial material;
+
+  const EditMaterialSheet({
+    Key? key,
+    required this.material,
+  }) : super(key: key);
+
+  @override
+  ConsumerState<EditMaterialSheet> createState() => _EditMaterialSheetState();
+}
+
+class _EditMaterialSheetState extends ConsumerState<EditMaterialSheet> {
+  File? _selectedFile;
+  late final TextEditingController _materialTypeController;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _materialTypeController = TextEditingController(text: widget.material.materialType);
+  }
+
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      setState(() {
+        _selectedFile = File(image.path);
+      });
+    }
+  }
+
+  Future<void> _updateMaterial() async {
+    if (_materialTypeController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter material type')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await ref.read(trainingMaterialsProvider.notifier).updateTrainingMaterial(
+        id: widget.material.id,
+        materialType: _materialTypeController.text,
+        path: widget.material.path, // Keep the existing path if no new image
+        approved: true,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Training material updated successfully')),
+        );
+        Navigator.pop(context);
+        ref.read(trainingMaterialsProvider.notifier).loadTrainingMaterials();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating material: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Edit Training Material',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _materialTypeController,
+            decoration: const InputDecoration(
+              labelText: 'Material Type',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Current Image',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              widget.material.path,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 200,
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(Icons.image_not_supported, size: 50),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _pickImage,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Change Image'),
+          ),
+          if (_selectedFile != null) ...[
+            const SizedBox(height: 16),
+            const Text(
+              'New Image',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(
+                _selectedFile!,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.secondary,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            onPressed: _isLoading ? null : _updateMaterial,
+            child: _isLoading
+                ? const CircularProgressIndicator()
+                : const Text('Update Material'),
           ),
           const SizedBox(height: 16),
         ],

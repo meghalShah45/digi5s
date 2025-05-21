@@ -21,14 +21,11 @@ class TrainingMaterialService {
         if (jsonResponse['statusCode'] == 200 && jsonResponse['data'] != null) {
           final List<dynamic> data = jsonResponse['data'];
           return data.map((item) => TrainingMaterial.fromJson(item)).toList();
-        } else {
-          throw Exception(jsonResponse['message'] ?? 'Failed to fetch training materials');
         }
-      } else {
-        throw Exception('Server error: ${response.statusCode}');
+        throw Exception(jsonResponse['message'] ?? 'Failed to fetch training materials');
       }
+      throw Exception('Failed to fetch training materials: ${response.statusCode}');
     } catch (e) {
-      print('Error in getTrainingMaterials: $e'); // Add logging
       throw Exception('Error fetching training materials: $e');
     }
   }
@@ -59,18 +56,72 @@ class TrainingMaterialService {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(responseData);
-        if (jsonResponse['status'] == true && jsonResponse['data'] != null) {
+        if (jsonResponse['statusCode'] == 200 && jsonResponse['data'] != null) {
           final List<dynamic> data = jsonResponse['data'];
           return data.map((item) => TrainingMaterial.fromJson(item)).toList();
-        } else {
-          throw Exception(jsonResponse['message'] ?? 'Failed to upload training material');
         }
-      } else {
-        throw Exception('Server error: ${response.statusCode}');
+        throw Exception(jsonResponse['message'] ?? 'Failed to upload training material');
       }
+      throw Exception('Failed to upload training material: ${response.statusCode}');
     } catch (e) {
-      print('Error in uploadTrainingMaterial: $e'); // Add logging
       throw Exception('Error uploading training material: $e');
+    }
+  }
+
+  Future<List<TrainingMaterial>> updateTrainingMaterial({
+    required String id,
+    required String materialType,
+    required String path,
+    required bool approved,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/training-material/$id'),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'materialType': materialType,
+          'path': path,
+          'approved': approved,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        if (jsonResponse['statusCode'] == 200 && jsonResponse['data'] != null) {
+          final List<dynamic> data = jsonResponse['data'];
+          return data.map((item) => TrainingMaterial.fromJson(item)).toList();
+        }
+        throw Exception(jsonResponse['message'] ?? 'Failed to update training material');
+      }
+      throw Exception('Failed to update training material: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Error updating training material: $e');
+    }
+  }
+
+  Future<List<TrainingMaterial>> deleteTrainingMaterial(String id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/training-material/$id'),
+        headers: {
+          'accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = json.decode(response.body);
+        if (jsonResponse['statusCode'] == 200 && jsonResponse['data'] != null) {
+          final List<dynamic> data = jsonResponse['data'];
+          return data.map((item) => TrainingMaterial.fromJson(item)).toList();
+        }
+        throw Exception(jsonResponse['message'] ?? 'Failed to delete training material');
+      }
+      throw Exception('Failed to delete training material: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Error deleting training material: $e');
     }
   }
 } 

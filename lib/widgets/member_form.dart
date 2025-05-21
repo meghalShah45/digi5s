@@ -2,8 +2,17 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../theme/colors.dart';
+import '../services/member_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class MemberForm extends StatefulWidget {
+final memberServiceProvider = Provider((ref) => MemberService());
+
+final rolesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final memberService = ref.watch(memberServiceProvider);
+  return memberService.getRoles();
+});
+
+class MemberForm extends ConsumerStatefulWidget {
   final bool showZoneDropdown;
   final Function(Map<String, dynamic>) onSubmit;
   final Map<String, dynamic>? initialData;
@@ -20,13 +29,14 @@ class MemberForm extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<MemberForm> createState() => _MemberFormState();
+  ConsumerState<MemberForm> createState() => _MemberFormState();
 }
 
-class _MemberFormState extends State<MemberForm> {
+class _MemberFormState extends ConsumerState<MemberForm> {
   final _formKey = GlobalKey<FormState>();
   String? selectedZone;
   String? selectedRole;
+  String? selectedRoleId;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -36,7 +46,6 @@ class _MemberFormState extends State<MemberForm> {
   final ImagePicker _picker = ImagePicker();
 
   final List<String> zones = ['Zone A', 'Zone B', 'Zone C']; // Replace with actual zones
-  final List<String> roles = ['ZONE-LEADER', 'ZONE-MEMBER', 'VIEWER'];
 
   @override
   void initState() {
@@ -86,6 +95,42 @@ class _MemberFormState extends State<MemberForm> {
     super.dispose();
   }
 
+  Widget _buildRoleDropdown() {
+    final rolesAsync = ref.watch(rolesProvider);
+
+    return rolesAsync.when(
+      data: (roles) {
+        return DropdownButtonFormField<String>(
+          value: selectedRole,
+          decoration: InputDecoration(
+            labelText: 'Role',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border),
+            ),
+            filled: true,
+            fillColor: AppColors.surface,
+          ),
+          items: roles.map((role) {
+            return DropdownMenuItem<String>(
+              value: role['roleName'],
+              child: Text(role['roleName']),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              selectedRole = value;
+              selectedRoleId = roles.firstWhere((role) => role['roleName'] == value)['id'];
+            });
+          },
+          validator: (value) => value == null ? 'Please select a role' : null,
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Text('Error loading roles: $error'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -101,11 +146,11 @@ class _MemberFormState extends State<MemberForm> {
       ),
       child: SingleChildScrollView(
         child: Form(
-      key: _formKey,
-      child: Column(
+          key: _formKey,
+          child: Column(
             mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -122,7 +167,7 @@ class _MemberFormState extends State<MemberForm> {
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
-            ),
+              ),
               const SizedBox(height: 20),
               // Profile Image
               Center(
@@ -146,53 +191,53 @@ class _MemberFormState extends State<MemberForm> {
                         : null,
                   ),
                 ),
-          ),
+              ),
               const SizedBox(height: 20),
 
               // Full Name
               TextFormField(
-            controller: _nameController,
+                controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'Full Name',
                   prefixIcon: Icon(Icons.person),
                 ),
                 validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
-          ),
-          const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
               // Email
               TextFormField(
-            controller: _emailController,
+                controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email',
                   prefixIcon: Icon(Icons.email),
                 ),
-            keyboardType: TextInputType.emailAddress,
-            validator: (value) {
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
                   if (value?.isEmpty ?? true) return 'Required';
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
                     return 'Please enter a valid email';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
 
               // Password
               TextFormField(
-            controller: _passwordController,
+                controller: _passwordController,
                 decoration: const InputDecoration(
                   labelText: 'Password',
                   prefixIcon: Icon(Icons.lock),
                 ),
-            obscureText: true,
+                obscureText: true,
                 validator: (value) {
                   if (value?.isEmpty ?? true) return 'Required';
                   if (value!.length < 6) return 'Password must be at least 6 characters';
                   return null;
                 },
-          ),
-          const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
               // Phone Number
               TextFormField(
@@ -202,53 +247,28 @@ class _MemberFormState extends State<MemberForm> {
                   prefixIcon: Icon(Icons.phone),
                 ),
                 keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) return 'Required';
-                  if (!RegExp(r'^\d{10}$').hasMatch(value!)) {
-                    return 'Please enter a valid 10-digit phone number';
-                  }
-                  return null;
-                },
+                validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
               ),
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               // Designation
               TextFormField(
-            controller: _designationController,
+                controller: _designationController,
                 decoration: const InputDecoration(
                   labelText: 'Designation',
                   prefixIcon: Icon(Icons.work),
                 ),
                 validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
-          ),
-          const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
               // Role Dropdown
-              DropdownButtonFormField<String>(
-                value: selectedRole,
-                decoration: const InputDecoration(
-                  labelText: 'Role',
-                  prefixIcon: Icon(Icons.assignment_ind),
-                ),
-                items: roles.map((role) {
-                  return DropdownMenuItem(
-                    value: role,
-                    child: Text(role),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedRole = value;
-                  });
-                },
-                validator: (value) => value == null ? 'Required' : null,
-          ),
-          const SizedBox(height: 24),
+              _buildRoleDropdown(),
+              const SizedBox(height: 20),
 
-              // Submit Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate() && _selectedImage != null) {
                       widget.onSubmit({
@@ -257,9 +277,10 @@ class _MemberFormState extends State<MemberForm> {
                         'password': _passwordController.text,
                         'phoneNumber': _phoneController.text,
                         'designation': _designationController.text,
+                        'signupType': 'email',
                         'role': selectedRole,
-                        'signupType': 'LOCAL',
-                        'file': _selectedImage,
+                        'roleId': selectedRoleId,
+                        'file': _selectedImage!,
                       });
                     } else if (_selectedImage == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -270,28 +291,27 @@ class _MemberFormState extends State<MemberForm> {
                       );
                     }
                   },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                    'Add Member',
-                style: TextStyle(
-                      color: AppColors.secondaryLight,
-                  fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-              const SizedBox(height: 20),
-                    ],
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
+                  child: const Text(
+                    'Add Member',
+                    style: TextStyle(
+                      color: AppColors.secondaryLight,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
+      ),
     );
   }
 } 

@@ -23,15 +23,15 @@ class TrainingMaterial {
 
   factory TrainingMaterial.fromJson(Map<String, dynamic> json) {
     return TrainingMaterial(
-      id: json['id'],
-      orgId: json['orgId'],
-      materialType: json['materialType'],
-      path: json['path'],
-      approved: json['approved'],
-      createdAt: DateTime.parse(json['createdAt']),
-      modifiedAt: DateTime.parse(json['modifiedAt']),
-      createdBy: json['createdBy'],
-      modifiedBy: json['modifiedBy'],
+      id: json['id'] as String,
+      orgId: json['orgId'] as String,
+      materialType: json['materialType'] as String,
+      path: json['path'] as String,
+      approved: json['approved'] as bool,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      modifiedAt: DateTime.parse(json['modifiedAt'] as String),
+      createdBy: json['createdBy'] as String,
+      modifiedBy: json['modifiedBy'] as String?,
     );
   }
 

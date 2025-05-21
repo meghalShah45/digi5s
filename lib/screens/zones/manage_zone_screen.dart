@@ -202,23 +202,18 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
                   ),
                 ),
               ),
-              // Container(
-              //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              //   decoration: BoxDecoration(
-              //     color: zone.active
-              //         ? AppColors.success.withOpacity(0.3)
-              //         : AppColors.error.withOpacity(0.3),
-              //     borderRadius: BorderRadius.circular(20),
-              //   ),
-              //   child: Text(
-              //     zone.active ? 'Active' : 'Inactive',
-              //     style: TextStyle(
-              //       color: zone.active ? AppColors.success : AppColors.error,
-              //       fontSize: 12,
-              //       fontWeight: FontWeight.w500,
-              //     ),
-              //   ),
-              // ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: AppColors.primary),
+                    onPressed: () => _showEditDialog(context, zone),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: AppColors.error),
+                    onPressed: () => _showDeleteConfirmation(context, zone),
+                  ),
+                ],
+              ),
             ],
           ),
           if (zone.description != null) ...[
@@ -231,24 +226,6 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          // Text(
-          //   'Members: }',
-          //   style: const TextStyle(
-          //     color: AppColors.textSecondary,
-          //     fontSize: 14,
-          //   ),
-          // ),
-          // if (zone.leaderName != null) ...[
-          //   const SizedBox(height: 4),
-          //   Text(
-          //     'Leader: ${zone.leaderName}',
-          //     style: const TextStyle(
-          //       color: AppColors.textSecondary,
-          //       fontSize: 14,
-          //     ),
-          //   ),
-          // ],
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -272,6 +249,121 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
                 child: const Text('Manage Members'),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEditDialog(BuildContext context, ZoneData zone) async {
+    final TextEditingController nameController = TextEditingController(text: zone.name);
+    final TextEditingController descriptionController = TextEditingController(text: zone.description);
+
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Zone'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Zone Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await ref.read(zoneListProvider.notifier).updateZone(
+                  zone.id,
+                  nameController.text,
+                );
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Zone updated successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString()),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showDeleteConfirmation(BuildContext context, ZoneData zone) async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Zone'),
+        content: Text('Are you sure you want to delete "${zone.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await ref.read(zoneListProvider.notifier).deleteZone(zone.id);
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Zone deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString()),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: const Text('Delete'),
           ),
         ],
       ),

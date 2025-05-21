@@ -11,18 +11,7 @@ class PerformAuditScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Generate dummy audit sheets from default questions
     final sheets = [
-      AuditSheet(
-        id: 'sheet1',
-        name: 'Zone A Audit',
-        createdAt: DateTime.now().subtract(const Duration(days: 5)),
-        questions: defaultAuditQuestions,
-      ),
-      AuditSheet(
-        id: 'sheet2',
-        name: 'Zone B Audit',
-        createdAt: DateTime.now().subtract(const Duration(days: 3)),
-        questions: defaultAuditQuestions,
-      ),
+
     ];
 
     return Scaffold(
@@ -36,7 +25,7 @@ class PerformAuditScreen extends StatelessWidget {
       body: Column(
         children: [
           _buildHeader(),
-          Expanded(child: _buildSheetList(context, sheets)),
+          // Expanded(child: _buildSheetList(context, sheets)),
         ],
       ),
     );

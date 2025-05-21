@@ -80,4 +80,70 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
       rethrow;
     }
   }
+
+  Future<String> updateZone(String zoneId, String zoneName) async {
+    try {
+      final orgId = await _storage.read(key: 'orgId');
+      final token = await _storage.read(key: 'token');
+      
+      if (orgId == null || token == null) {
+        throw Exception('Organization ID or token not found');
+      }
+
+      final response = await http.put(
+        Uri.parse('http://localhost:8081/zones/$zoneId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'zoneName': zoneName,
+          'orgId': orgId,
+          'modifiedBy': 'SUPER-ADMIN',
+        }),
+      );
+
+      final responseData = json.decode(response.body);
+      
+      if (response.statusCode != 200) {
+        throw Exception(responseData['message'] ?? 'Failed to update zone');
+      }
+
+      // Refresh the zones list after update
+      await fetchZones();
+      return responseData['message'] as String;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<String> deleteZone(String zoneId) async {
+    try {
+      final token = await _storage.read(key: 'token');
+      
+      if (token == null) {
+        throw Exception('Token not found');
+      }
+
+      final response = await http.delete(
+        Uri.parse('http://localhost:8081/zones/$zoneId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final responseData = json.decode(response.body);
+      
+      if (response.statusCode != 200) {
+        throw Exception(responseData['message'] ?? 'Failed to delete zone');
+      }
+
+      // Refresh the zones list after deletion
+      await fetchZones();
+      return responseData['message'] as String;
+    } catch (e) {
+      rethrow;
+    }
+  }
 } 

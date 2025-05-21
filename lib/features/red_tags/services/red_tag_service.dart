@@ -89,4 +89,53 @@ class RedTagService {
       throw Exception('Error updating red tag status: $e');
     }
   }
+
+  Future<String?> deleteRedTag(String redTagId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/redtags/$redTagId'),
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode != 200) {
+        final errorBody = json.decode(response.body);
+        return errorBody['message'] ?? 'Failed to delete red tag';
+      }
+      return 'Red tag deleted successfully';
+    } catch (e) {
+      return 'Error deleting red tag: $e';
+    }
+  }
+
+  Future<void> updateRedTag(String redTagId, {
+    required String description,
+    required String path,
+    required String status,
+    required String remarks,
+    required String modifiedBy,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/redtags/$redTagId'),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'description': description,
+          'path': path,
+          'status': status,
+          'remarks': remarks,
+          'modifiedBy': modifiedBy,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        final errorBody = json.decode(response.body);
+        throw Exception(errorBody['message'] ?? 'Failed to update red tag');
+      }
+    } catch (e) {
+      throw Exception('Error updating red tag: $e');
+    }
+  }
 } 
