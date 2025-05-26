@@ -1,20 +1,84 @@
 import 'package:flutter/material.dart';
-import '../models/audit.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../models/audit_sheet.dart';
+import '../providers/audit_sheet_provider.dart';
+import '../providers/zone_provider.dart';
 import '../theme/colors.dart';
 import '../data/default_audit_questions.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ManageAuditScreen extends StatefulWidget {
+class ManageAuditScreen extends ConsumerStatefulWidget {
   const ManageAuditScreen({Key? key}) : super(key: key);
 
   @override
-  State<ManageAuditScreen> createState() => _ManageAuditScreenState();
+  ConsumerState<ManageAuditScreen> createState() => _ManageAuditScreenState();
 }
 
-class _ManageAuditScreenState extends State<ManageAuditScreen> {
-  List<AuditSheet> auditSheets = [];
+class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
+  String? selectedZone;
+  String? orgId;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => _initializeData());
+  }
+
+  Future<void> _initializeData() async {
+    try {
+      final storage = const FlutterSecureStorage();
+      print('Attempting to read orgId from secure storage...'); // Debug log
+      orgId = await storage.read(key: 'orgId');
+      print('Retrieved orgId from storage: $orgId'); // Debug log
+      
+      // Check all stored values
+      final allValues = await storage.readAll();
+      print('All stored values: $allValues'); // Debug log
+      
+      if (orgId != null) {
+        print('Organization ID found, fetching zones...'); // Debug log
+        await ref.read(zoneListProvider.notifier).fetchZones();
+      } else {
+        print('Organization ID not found in secure storage'); // Debug log
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please log in again to access this feature'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error in _initializeData: $e'); // Debug log
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error initializing data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -29,12 +93,12 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: AppColors.textPrimary),
-            onPressed: () {
-              // TODO: Implement filter functionality
-            },
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.filter_list, color: AppColors.textPrimary),
+          //   onPressed: () {
+          //     // TODO: Implement filter functionality
+          //   },
+          // ),
         ],
       ),
       body: Column(
@@ -54,9 +118,7 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
             ),
           );
           if (newAuditSheet != null) {
-            setState(() {
-              auditSheets.add(newAuditSheet);
-            });
+            ref.refresh(auditSheetsProvider(orgId!));
           }
         },
         backgroundColor: AppColors.primary,
@@ -100,19 +162,32 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              Container(
+              Consumer(
+                builder: (context, ref, child) {
+                  final auditSheetsAsync = ref.watch(auditSheetsProvider(orgId ?? ''));
+                  return auditSheetsAsync.when(
+                    data: (sheets) => Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${auditSheets.length}',
+                        '${sheets.length}',
                   style: const TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                    ),
+                    loading: () => const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(),
+                    ),
+                    error: (_, __) => const Text('0'),
+                  );
+                },
               ),
             ],
           ),
@@ -130,6 +205,18 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
   }
 
   Widget _buildAuditList() {
+    if (orgId == null) {
+      return const Center(
+        child: Text('Organization ID not found'),
+      );
+    }
+
+    return Consumer(
+      builder: (context, ref, child) {
+        final auditSheetsAsync = ref.watch(auditSheetsProvider(orgId!));
+        
+        return auditSheetsAsync.when(
+          data: (auditSheets) {
     if (auditSheets.isEmpty) {
       return Center(
         child: Column(
@@ -273,6 +360,16 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
                 ),
               ],
             ),
+                  ),
+                );
+              },
+            );
+          },
+          loading: () => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          error: (error, stackTrace) => Center(
+            child: Text('Error: $error'),
           ),
         );
       },
@@ -293,7 +390,11 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
       MaterialPageRoute(
         builder: (context) => _AuditEditorScreen(auditSheet: sheet),
       ),
-    );
+    ).then((_) {
+      if (orgId != null) {
+        ref.refresh(auditSheetsProvider(orgId!));
+      }
+    });
   }
 
   Future<void> _deleteAuditSheet(AuditSheet sheet) async {
@@ -311,11 +412,20 @@ class _ManageAuditScreenState extends State<ManageAuditScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                auditSheets.remove(sheet);
-              });
+            onPressed: () async {
               Navigator.pop(context);
+              try {
+                await ref.read(deleteAuditSheetProvider(sheet.id).future);
+                if (orgId != null) {
+                  ref.refresh(auditSheetsProvider(orgId!));
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error deleting audit sheet: $e')),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -366,7 +476,7 @@ class QuestionEntry extends StatelessWidget {
 }
 
 // Modify the main widget to use the QuestionEntry widget
-class _AuditEditorScreen extends StatefulWidget {
+class _AuditEditorScreen extends ConsumerStatefulWidget {
   final AuditSheet? auditSheet;
 
   const _AuditEditorScreen({
@@ -375,71 +485,234 @@ class _AuditEditorScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<_AuditEditorScreen> createState() => _AuditEditorScreenState();
+  ConsumerState<_AuditEditorScreen> createState() => _AuditEditorScreenState();
 }
 
-class _AuditEditorScreenState extends State<_AuditEditorScreen> {
-  final List<QuestionEntry> questionEntries = [
-    QuestionEntry(
-      questionController: TextEditingController(),
-      onAttachPhoto: () {},
-    ),
-  ];
+class _AuditEditorScreenState extends ConsumerState<_AuditEditorScreen> {
   final List<AuditQuestion> savedQuestions = [];
   String? selectedZone;
   DateTime? selectedDate;
+  String? selectedMonth;
+  int? selectedYear;
+  final TextEditingController nameController = TextEditingController();
+  bool isLoading = false;
+
+  final List<String> months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  List<int> get years {
+    final currentYear = DateTime.now().year;
+    return List.generate(5, (index) => currentYear - 2 + index);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.auditSheet != null) {
+      // Initialize with existing audit sheet data
+      nameController.text = widget.auditSheet!.name;
+      selectedZone = widget.auditSheet!.zoneId;
+      selectedDate = widget.auditSheet!.createdAt;
+      selectedMonth = widget.auditSheet!.month;
+      selectedYear = widget.auditSheet!.createdAt.year;
+      savedQuestions.addAll(widget.auditSheet!.questions);
+    } else {
+      selectedYear = DateTime.now().year;
+      selectedMonth = months[DateTime.now().month - 1];
+    }
+    Future.microtask(() => ref.read(zoneListProvider.notifier).fetchZones());
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveAuditSheet() async {
+    if (selectedZone == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a zone')),
+      );
+      return;
+    }
+
+    if (nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a name for the audit sheet')),
+      );
+      return;
+    }
+
+    if (savedQuestions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add at least one question')),
+      );
+      return;
+    }
+
+    if (selectedMonth == null || selectedYear == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select both month and year')),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final storage = const FlutterSecureStorage();
+      final orgId = await storage.read(key: 'orgId') ?? '';
+      
+      print('Saving audit sheet with name: ${nameController.text}'); // Debug log
+      
+      final monthIndex = months.indexOf(selectedMonth!);
+      final auditSheet = AuditSheet(
+        id: widget.auditSheet?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        name: nameController.text.trim(),
+        zoneId: selectedZone!,
+        orgId: orgId,
+        createdAt: DateTime(selectedYear!, monthIndex + 1, 1),
+        questions: savedQuestions,
+        month: selectedMonth!,
+      );
+
+      if (widget.auditSheet == null) {
+        // Create new audit sheet
+        await ref.read(createAuditSheetProvider(
+          CreateAuditSheetParams(
+            auditSheet: auditSheet,
+            zoneId: selectedZone!,
+          ),
+        ).future);
+      } else {
+        // Update existing audit sheet
+        await ref.read(updateAuditSheetProvider(auditSheet).future);
+      }
+
+      if (mounted) {
+        Navigator.pop(context, auditSheet);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving audit sheet: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(widget.auditSheet == null ? 'Create Audit Sheet' : 'Edit Audit Sheet'),
-        backgroundColor: Colors.blueGrey,
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        title: Text(
+          widget.auditSheet == null ? 'Create Audit Sheet' : 'Edit Audit Sheet',
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildZoneAndMonthPage(),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => _AddQuestionsPage(
-                      savedQuestions: savedQuestions,
-                      onAddQuestion: (AuditQuestion question) {
-                        setState(() {
-                          savedQuestions.add(question);
-                        });
-                      },
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                );
-              },
-              child: const Text('Add Questions'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildZoneAndMonthPage() {
-    return Column(
-      children: [
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Basic Information',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Audit Sheet Name',
+                        labelStyle: TextStyle(color: AppColors.textSecondary),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                    ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.primary),
+                        ),
+                        filled: true,
+                        fillColor: AppColors.background,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Zone Name',
-            border: OutlineInputBorder(),
+            labelStyle: TextStyle(color: AppColors.textSecondary),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primary),
+            ),
+            filled: true,
+            fillColor: AppColors.background,
           ),
-          items: ['Zone A', 'Zone B', 'Zone C'].map((zone) => DropdownMenuItem<String>(
-            value: zone,
-            child: Text(zone),
-          )).toList(),
+          value: selectedZone,
+          items: ref.watch(zoneListProvider).when(
+            data: (zones) => zones?.map((zone) => DropdownMenuItem<String>(
+              value: zone.id,
+              child: Text(zone.name),
+            )).toList() ?? [],
+            loading: () => [],
+            error: (_, __) => [],
+          ),
           onChanged: (value) {
             setState(() {
               selectedZone = value;
@@ -449,14 +722,34 @@ class _AuditEditorScreenState extends State<_AuditEditorScreen> {
         const SizedBox(height: 16),
         TextField(
           readOnly: true,
-          decoration: const InputDecoration(
+                      controller: TextEditingController(
+                        text: selectedDate != null 
+                          ? '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'
+                          : 'Select Date',
+                      ),
+                      decoration: InputDecoration(
             labelText: 'Audit Month',
-            border: OutlineInputBorder(),
-          ),
-          onTap: () async {
+                        labelStyle: TextStyle(color: AppColors.textSecondary),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.primary),
+                        ),
+                        filled: true,
+                        fillColor: AppColors.background,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.calendar_today),
+                          onPressed: () async {
             final date = await showDatePicker(
               context: context,
-              initialDate: DateTime.now(),
+                              initialDate: selectedDate ?? DateTime.now(),
               firstDate: DateTime(2000),
               lastDate: DateTime(2100),
             );
@@ -467,20 +760,202 @@ class _AuditEditorScreenState extends State<_AuditEditorScreen> {
             }
           },
         ),
-      ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            decoration: InputDecoration(
+                              labelText: 'Month',
+                              labelStyle: TextStyle(color: AppColors.textSecondary),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppColors.border),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppColors.border),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppColors.primary),
+                              ),
+                              filled: true,
+                              fillColor: AppColors.background,
+                            ),
+                            value: selectedMonth,
+                            items: months.map((month) => DropdownMenuItem<String>(
+                              value: month,
+                              child: Text(month),
+                            )).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                selectedMonth = value;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            decoration: InputDecoration(
+                              labelText: 'Year',
+                              labelStyle: TextStyle(color: AppColors.textSecondary),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppColors.border),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppColors.border),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppColors.primary),
+                              ),
+                              filled: true,
+                              fillColor: AppColors.background,
+                            ),
+                            value: selectedYear,
+                            items: years.map((year) => DropdownMenuItem<int>(
+                              value: year,
+                              child: Text(year.toString()),
+                            )).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                selectedYear = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => _AddQuestionsPage(
+                        savedQuestions: savedQuestions,
+                        onAddQuestion: (AuditQuestion question) {
+                          setState(() {
+                            savedQuestions.add(question);
+                          });
+                        },
+                        month: selectedMonth!,
+                        sheetName: nameController.text.trim(),
+                        zoneName: ref.watch(zoneListProvider).when(
+                          data: (zones) => zones?.firstWhere(
+                            (zone) => zone.id == selectedZone,
+                          )?.name,
+                          loading: () => null,
+                          error: (_, __) => null,
+                        ),
+                        zoneId: selectedZone,
+                        isEditing: widget.auditSheet != null,
+                      ),
+                    ),
+                  );
+                  if (result != null && result is List<AuditQuestion>) {
+                    setState(() {
+                      savedQuestions.clear();
+                      savedQuestions.addAll(result);
+                    });
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  savedQuestions.isEmpty ? 'Add Questions' : 'Edit Questions (${savedQuestions.length})',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isLoading ? null : _saveAuditSheet,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: isLoading
+                      ? const CircularProgressIndicator(color: AppColors.secondaryLight)
+                      : Text(
+                          widget.auditSheet == null ? 'Create Audit Sheet' : 'Save Changes',
+                          style: const TextStyle(
+                            color: AppColors.secondaryLight,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _CreateAuditSheetPage extends StatefulWidget {
+class _CreateAuditSheetPage extends ConsumerStatefulWidget {
+  const _CreateAuditSheetPage({Key? key}) : super(key: key);
+
   @override
-  _CreateAuditSheetPageState createState() => _CreateAuditSheetPageState();
+  ConsumerState<_CreateAuditSheetPage> createState() => _CreateAuditSheetPageState();
 }
 
-class _CreateAuditSheetPageState extends State<_CreateAuditSheetPage> {
+class _CreateAuditSheetPageState extends ConsumerState<_CreateAuditSheetPage> {
   String? selectedZone;
   DateTime? selectedDate;
+  String? selectedMonth;
+  int? selectedYear;
   final List<AuditQuestion> questions = [];
+  final TextEditingController nameController = TextEditingController();
+  bool isLoading = false;
+
+  final List<String> months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  List<int> get years {
+    final currentYear = DateTime.now().year;
+    return List.generate(5, (index) => currentYear - 2 + index);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    selectedYear = DateTime.now().year;
+    selectedMonth = months[DateTime.now().month - 1];
+    Future.microtask(() => ref.read(zoneListProvider.notifier).fetchZones());
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -533,6 +1008,28 @@ class _CreateAuditSheetPageState extends State<_CreateAuditSheetPage> {
                       ),
                     ),
                     const SizedBox(height: 24),
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Audit Sheet Name',
+                        labelStyle: TextStyle(color: AppColors.textSecondary),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.primary),
+                        ),
+                        filled: true,
+                        fillColor: AppColors.background,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       decoration: InputDecoration(
                         labelText: 'Zone Name',
@@ -552,10 +1049,15 @@ class _CreateAuditSheetPageState extends State<_CreateAuditSheetPage> {
                         filled: true,
                         fillColor: AppColors.background,
                       ),
-                      items: ['Zone A', 'Zone B', 'Zone C'].map((zone) => DropdownMenuItem<String>(
-                        value: zone,
-                        child: Text(zone),
-                      )).toList(),
+                      value: selectedZone,
+                      items: ref.watch(zoneListProvider).when(
+                        data: (zones) => zones?.map((zone) => DropdownMenuItem<String>(
+                          value: zone.id,
+                          child: Text(zone.name),
+                        )).toList() ?? [],
+                        loading: () => [],
+                        error: (_, __) => [],
+                      ),
                       onChanged: (value) {
                         setState(() {
                           selectedZone = value;
@@ -563,10 +1065,9 @@ class _CreateAuditSheetPageState extends State<_CreateAuditSheetPage> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      readOnly: true,
+                    DropdownButtonFormField<String>(
                       decoration: InputDecoration(
-                        labelText: 'Audit Month',
+                        labelText: 'Month',
                         labelStyle: TextStyle(color: AppColors.textSecondary),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -582,71 +1083,80 @@ class _CreateAuditSheetPageState extends State<_CreateAuditSheetPage> {
                         ),
                         filled: true,
                         fillColor: AppColors.background,
-                        suffixIcon: Icon(Icons.calendar_today, color: AppColors.textSecondary),
                       ),
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2100),
-                        );
-                        if (date != null) {
-                          setState(() {
-                            selectedDate = date;
-                          });
-                        }
+                      value: selectedMonth,
+                      items: months.map((month) => DropdownMenuItem<String>(
+                        value: month,
+                        child: Text(month),
+                      )).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedMonth = value;
+                        });
                       },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            decoration: InputDecoration(
+                              labelText: 'Year',
+                              labelStyle: TextStyle(color: AppColors.textSecondary),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppColors.border),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: AppColors.border),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppColors.primary),
+                              ),
+                              filled: true,
+                              fillColor: AppColors.background,
+                            ),
+                            value: selectedYear,
+                            items: years.map((year) => DropdownMenuItem<int>(
+                              value: year,
+                              child: Text(year.toString()),
+                            )).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                selectedYear = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () async {
-                  if (selectedZone == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please select a zone first'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
-                  
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => _AddQuestionsPage(
-                        savedQuestions: questions,
-                        onAddQuestion: (AuditQuestion question) {
-                          setState(() {
-                            questions.add(question);
-                          });
-                        },
-                        zoneName: selectedZone,
-                      ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isLoading ? null : _navigateToAddQuestions,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                  
-                  if (result != null && result is AuditSheet) {
-                    Navigator.pop(context, result);
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  minimumSize: const Size(double.infinity, 56),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-                child: const Text(
-                  'Add Questions',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.secondaryLight,
-                  ),
+                  child: isLoading
+                      ? const CircularProgressIndicator(color: AppColors.secondaryLight)
+                      : const Text(
+                          'Add Questions',
+                          style: TextStyle(
+                            color: AppColors.secondaryLight,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -655,18 +1165,113 @@ class _CreateAuditSheetPageState extends State<_CreateAuditSheetPage> {
       ),
     );
   }
+
+  Future<void> _navigateToAddQuestions() async {
+    if (selectedZone == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a zone')),
+      );
+      return;
+    }
+
+    if (nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a name for the audit sheet')),
+      );
+      return;
+    }
+
+    if (selectedMonth == null || selectedYear == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select both month and year')),
+      );
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _AddQuestionsPage(
+          savedQuestions: questions,
+          onAddQuestion: (AuditQuestion question) {
+            setState(() {
+              questions.add(question);
+            });
+          },
+          month: selectedMonth!,
+          sheetName: nameController.text.trim(),
+          zoneName: selectedZone,
+          zoneId: selectedZone,
+          isEditing: false,
+        ),
+      ),
+    );
+
+    if (result != null && result is AuditSheet) {
+      final monthIndex = months.indexOf(selectedMonth!);
+      final auditSheet = AuditSheet(
+        id: result.id,
+        name: result.name,
+        zoneId: result.zoneId,
+        orgId: result.orgId,
+        createdAt: DateTime(selectedYear!, monthIndex + 1, 1),
+        questions: result.questions,
+        month: selectedMonth!,
+      );
+      await _generateAuditSheet(auditSheet);
+    }
+  }
+
+  Future<void> _generateAuditSheet(AuditSheet auditSheet) async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final result = await ref.read(createAuditSheetProvider(
+        CreateAuditSheetParams(
+          auditSheet: auditSheet,
+          zoneId: selectedZone!,
+        ),
+      ).future);
+
+      if (mounted) {
+        Navigator.pop(context, result);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating audit sheet: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
 }
 
 class _AddQuestionsPage extends StatefulWidget {
   final List<AuditQuestion> savedQuestions;
   final Function(AuditQuestion) onAddQuestion;
   final String? zoneName;
+  final String sheetName;
+  final String month;
+  final String? zoneId;
+  final bool isEditing;
 
   const _AddQuestionsPage({
     Key? key,
     required this.savedQuestions,
     required this.onAddQuestion,
-    this.zoneName,
+     this.zoneName,
+    required this.month,
+    required this.sheetName,
+    this.zoneId,
+    this.isEditing = false,
   }) : super(key: key);
 
   @override
@@ -697,6 +1302,45 @@ class _AddQuestionsPageState extends State<_AddQuestionsPage> {
     });
   }
 
+  void _addQuestion() {
+    if (questionController.text.isNotEmpty) {
+      final newQuestion = AuditQuestion(
+        id: DateTime.now().toString(),
+        question: questionController.text,
+        section: 15,
+        grade: 0,
+      );
+      setState(() {
+        questions.add(newQuestion);
+        questionController.clear();
+      });
+    }
+  }
+
+  Future<void> _generateAuditSheet() async {
+    if (questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add at least one question')),
+      );
+      return;
+    }
+
+    final storage = const FlutterSecureStorage();
+    final orgId = await storage.read(key: 'orgId') ?? '';
+    
+    final auditSheet = AuditSheet(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: widget.sheetName!,
+      zoneId: widget.zoneId ?? '',
+      orgId: orgId,
+      createdAt: DateTime.now(),
+      questions: questions,
+      month: widget.month
+    );
+
+    Navigator.pop(context, auditSheet);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -704,9 +1348,9 @@ class _AddQuestionsPageState extends State<_AddQuestionsPage> {
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
-        title: const Text(
-          'Add Questions',
-          style: TextStyle(
+        title: Text(
+          widget.isEditing ? 'Edit Questions' : 'Add Questions',
+          style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -717,7 +1361,6 @@ class _AddQuestionsPageState extends State<_AddQuestionsPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      // Add bottom button container
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -732,17 +1375,10 @@ class _AddQuestionsPageState extends State<_AddQuestionsPage> {
         ),
         child: SafeArea(
           child: ElevatedButton(
-            onPressed: questions.isEmpty
-                ? null // Disable button if no questions
-                : () {
-                    final newAuditSheet = AuditSheet(
-                      name: 'Audit Sheet for ${widget.zoneName ?? "Unknown Zone"}',
-                      createdAt: DateTime.now(),
-                      questions: questions,
-                      id: '',
-                    );
-                    Navigator.pop(context, newAuditSheet);
-                  },
+            onPressed: questions.isEmpty ? null : 
+              widget.isEditing ? 
+                () => Navigator.pop(context, questions) : 
+                _generateAuditSheet,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
@@ -758,7 +1394,9 @@ class _AddQuestionsPageState extends State<_AddQuestionsPage> {
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
                 Text(
-                  'Generate Audit ${questions.isNotEmpty ? "(${questions.length})" : ""}',
+                  widget.isEditing ? 
+                    'Save Questions ${questions.isNotEmpty ? "(${questions.length})" : ""}' :
+                    'Generate Audit Sheet ${questions.isNotEmpty ? "(${questions.length})" : ""}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -917,20 +1555,7 @@ class _AddQuestionsPageState extends State<_AddQuestionsPage> {
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: () {
-                            if (questionController.text.isNotEmpty) {
-                              final newQuestion = AuditQuestion(
-                                id: DateTime.now().toString(),
-                                question: questionController.text,
-                                section: 15,
-                                grade: 0,
-                              );
-                              setState(() {
-                                questions.add(newQuestion);
-                                questionController.clear();
-                              });
-                            }
-                          },
+                          onPressed: _addQuestion,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             minimumSize: const Size(double.infinity, 56),

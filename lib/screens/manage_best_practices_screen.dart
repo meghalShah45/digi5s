@@ -8,6 +8,7 @@ import '../services/zone_service.dart';
 import '../services/best_practice_service.dart';
 import '../theme/colors.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class BestPractice {
   final String id;
@@ -469,11 +470,25 @@ class _AddBestPracticeSheetState extends State<AddBestPracticeSheet> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedZoneId,
-              decoration: const InputDecoration(
-                labelText: 'Zone',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: 'Zone Name',
+                labelStyle: TextStyle(color: AppColors.textSecondary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primary),
+                ),
+                filled: true,
+                fillColor: AppColors.background,
               ),
+              value: _selectedZoneId,
               items: widget.zones.map((zone) => DropdownMenuItem<String>(
                 value: zone.id,
                 child: Text(zone.zoneName),
@@ -659,11 +674,25 @@ class _EditBestPracticeSheetState extends State<EditBestPracticeSheet> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedZoneId,
-              decoration: const InputDecoration(
-                labelText: 'Zone',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: 'Zone Name',
+                labelStyle: TextStyle(color: AppColors.textSecondary),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primary),
+                ),
+                filled: true,
+                fillColor: AppColors.background,
               ),
+              value: _selectedZoneId,
               items: widget.zones.map((zone) => DropdownMenuItem<String>(
                 value: zone.id,
                 child: Text(zone.zoneName),
