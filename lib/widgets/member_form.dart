@@ -44,8 +44,8 @@ class _MemberFormState extends ConsumerState<MemberForm> {
   final TextEditingController _phoneController = TextEditingController();
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
-
-  final List<String> zones = ['Zone A', 'Zone B', 'Zone C']; // Replace with actual zones
+  bool _isSubmitting = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -164,7 +164,7 @@ class _MemberFormState extends ConsumerState<MemberForm> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _isSubmitting ? null : () => Navigator.pop(context),
                   ),
                 ],
               ),
@@ -266,29 +266,89 @@ class _MemberFormState extends ConsumerState<MemberForm> {
               _buildRoleDropdown(),
               const SizedBox(height: 20),
 
+              if (_errorMessage != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate() && _selectedImage != null) {
-                      widget.onSubmit({
-                        'fullName': _nameController.text,
-                        'email': _emailController.text,
-                        'password': _passwordController.text,
-                        'phoneNumber': _phoneController.text,
-                        'designation': _designationController.text,
-                        'signupType': 'email',
-                        'role': selectedRole,
-                        'roleId': selectedRoleId,
-                        'file': _selectedImage!,
+                  onPressed: _isSubmitting ? null : () async {
+                    if (_formKey.currentState!.validate()) {
+                      if (selectedRoleId == null) {
+                        setState(() {
+                          _errorMessage = 'Please select a role';
+                        });
+                        return;
+                      }
+
+                      setState(() {
+                        _isSubmitting = true;
+                        _errorMessage = null;
                       });
-                    } else if (_selectedImage == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please select a profile image'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+
+                      try {
+                        // Format phone number to match the curl request format
+                        String phoneNumber = _phoneController.text;
+                        if (!phoneNumber.startsWith('0')) {
+                          phoneNumber = '0$phoneNumber';
+                        }
+
+                        // Get the role name from the selected role
+                        final rolesAsync = ref.read(rolesProvider);
+                        final roles = rolesAsync.value;
+                        if (roles == null) {
+                          throw 'Failed to load roles';
+                        }
+
+                        final selectedRoleData = roles.firstWhere(
+                          (role) => role['id'] == selectedRoleId,
+                          orElse: () => throw 'Selected role not found',
+                        );
+
+                        // Convert role name to API format (e.g., "Zone-Member" to "ZONE-MEMBER")
+                        final roleName = selectedRoleData['roleName'].toString().toUpperCase().replaceAll('-', '_');
+                        
+                        await widget.onSubmit({
+                          'orgId': widget.orgId,
+                          'zoneId': widget.zoneId,
+                          'roleId': selectedRoleId,
+                          'fullName': _nameController.text.trim(),
+                          'email': _emailController.text.trim().toLowerCase(),
+                          'password': _passwordController.text,
+                          'phoneNumber': phoneNumber,
+                          'designation': _designationController.text.trim(),
+                          'signupType': 'LOCAL',
+                          'role': roleName,
+                          'file': _selectedImage,
+                        });
+                      } catch (e) {
+                        if (mounted) {
+                          setState(() {
+                            _isSubmitting = false;
+                            _errorMessage = e.toString();
+                          });
+                        }
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -297,15 +357,25 @@ class _MemberFormState extends ConsumerState<MemberForm> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
                   ),
-                  child: const Text(
-                    'Add Member',
-                    style: TextStyle(
-                      color: AppColors.secondaryLight,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.secondaryLight),
+                          ),
+                        )
+                      : const Text(
+                          'Add Member',
+                          style: TextStyle(
+                            color: AppColors.secondaryLight,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],

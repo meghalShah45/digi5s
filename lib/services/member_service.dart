@@ -17,16 +17,29 @@ class MemberService {
     required String designation,
     required String signupType,
     required String role,
-    required File file,
+    File? file,
   }) async {
     try {
+      print('=== Member Creation Request ===');
+      print('orgId: $orgId');
+      print('zoneId: $zoneId');
+      print('roleId: $roleId');
+      print('fullName: $fullName');
+      print('email: $email');
+      print('password: $password');
+      print('phoneNumber: $phoneNumber');
+      print('designation: $designation');
+      print('signupType: $signupType');
+      print('role: $role');
+      print('hasFile: ${file != null}');
+      
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/users/organisation-members'),
       );
 
-      // Add text fields
-      request.fields.addAll({
+      // Add text fields in the exact order as the curl request
+      final fields = {
         'orgId': orgId,
         'zoneId': zoneId,
         'roleId': roleId,
@@ -37,32 +50,63 @@ class MemberService {
         'designation': designation,
         'signupType': signupType,
         'role': role,
+      };
+
+      print('\n=== Request Fields ===');
+      fields.forEach((key, value) {
+        print('$key: $value');
       });
 
-      // Add file
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          file.path,
-          contentType: MediaType('image', 'png'),
-        ),
-      );
+      request.fields.addAll(fields);
+
+      // Add file if provided
+      if (file != null) {
+        final fileStream = http.ByteStream(file.openRead());
+        final fileLength = await file.length();
+        
+        request.files.add(
+          http.MultipartFile(
+            'file',
+            fileStream,
+            fileLength,
+            filename: file.path.split('/').last,
+            contentType: MediaType('image', 'png'),
+          ),
+        );
+        print('\n=== File Info ===');
+        print('filename: ${file.path.split('/').last}');
+        print('size: $fileLength bytes');
+      }
 
       // Add headers
       request.headers.addAll({
         'accept': 'application/json',
       });
 
+      print('\n=== Request Headers ===');
+      request.headers.forEach((key, value) {
+        print('$key: $value');
+      });
+
       var response = await request.send();
       var responseData = await response.stream.bytesToString();
 
+      print('\n=== Response ===');
+      print('Status Code: ${response.statusCode}');
+      print('Body: $responseData');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return json.decode(responseData);
+        final decodedResponse = json.decode(responseData);
+        return decodedResponse;
       } else {
-        throw Exception('Failed to create member: ${response.statusCode}');
+        final errorData = json.decode(responseData);
+        final errorMessage = errorData['message'] ?? 'Unknown error';
+        throw errorMessage;
       }
     } catch (e) {
-      throw Exception('Error creating member: $e');
+      print('\n=== Error ===');
+      print(e.toString());
+      throw e.toString();
     }
   }
 

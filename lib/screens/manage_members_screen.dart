@@ -48,8 +48,9 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
 
   Future<void> _handleMemberSubmit(Map<String, dynamic> memberData) async {
     try {
+      print('Submitting member data: $memberData');
       final memberService = ref.read(memberServiceProvider);
-      await memberService.createOrganizationMember(
+      final response = await memberService.createOrganizationMember(
         orgId: widget.orgId,
         zoneId: widget.zoneId,
         roleId: memberData['roleId'],
@@ -63,25 +64,29 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
         file: memberData['file'],
       );
 
+      print('Member creation response: $response');
+
       // Refresh the members list
-      ref.refresh(_membersProvider);
+      ref.invalidate(_membersProvider);
+      await ref.refresh(_membersProvider.future);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Member added successfully'),
             backgroundColor: Colors.green,
-                    ),
+          ),
         );
         Navigator.pop(context); // Close the bottom sheet
       }
     } catch (e) {
+      print('Error in _handleMemberSubmit: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error adding member: ${e.toString()}'),
             backgroundColor: Colors.red,
-              ),
+          ),
         );
       }
     }
