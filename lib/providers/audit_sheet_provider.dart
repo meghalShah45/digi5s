@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/audit_sheet.dart';
+import '../features/audit/models/audit_sheet.dart';
 import '../services/audit_sheet_service.dart';
 
 final auditSheetServiceProvider = Provider<AuditSheetService>((ref) {

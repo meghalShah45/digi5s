@@ -40,10 +40,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLoginResponse(http.Response response) async {
-    final jsonResponse = json.decode(response.body);
-    
-    if (response.statusCode == 200) {
-      final loginResponse = LoginResponse.fromJson(jsonResponse);
+    final jsonResponse = await json.decode(response.body);
+
+    final loginResponse = LoginResponse.fromJson(jsonResponse);
+    if (loginResponse.statusCode == 200) {
       
       if (loginResponse.data == null) {
         if (mounted) {
@@ -94,9 +94,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         body: json.encode({
           'email': _emailController.text,
           'password': _passwordController.text,
+          'rememberMe': true,
         }),
       );
-
+      print('Email: ${_emailController.text}');
+      print('Password: ${_passwordController.text}');
       await _handleLoginResponse(response);
     } /*catch (e) {
       if (mounted) {

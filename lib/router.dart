@@ -24,8 +24,8 @@ import 'screens/ss_training_material_screen.dart';
 import 'screens/module_selection_screen.dart';
 import 'screens/manage_best_practices_screen.dart';
 import 'screens/manage_audit_screen.dart';
-import 'screens/perform_audit_screen.dart';
-import 'screens/perform_audit_detail_screen.dart';
+import 'features/audit/screens/audit_sheets_list_screen.dart';
+import 'features/audit/screens/perform_audit_screen.dart';
 import 'screens/flash_news_screen.dart';
 import 'screens/zones/manage_zone_screen.dart';
 import 'screens/zones/add_zone_screen.dart';
@@ -36,16 +36,8 @@ import 'features/red_tags/screens/manage_red_tags_main_screen.dart';
 import 'features/red_tags/screens/create_red_tag_screen.dart';
 import 'features/red_tags/screens/view_red_tag_list_screen.dart';
 import 'features/red_tags/screens/red_tag_list_screen.dart';
-import 'screens/ss_training_material_screen.dart';
-import 'screens/perform_audit_screen.dart';
-import 'screens/perform_audit_detail_screen.dart';
-import 'models/audit_sheet.dart';
-import 'screens/super_admin_dashboard.dart';
-import 'screens/add_organization_screen.dart';
-import 'screens/active_organizations_screen.dart';
-import 'screens/manage_org_info_screen.dart';
+import 'features/audit/models/audit_sheet.dart';
 import 'models/organization.dart';
-import 'screens/login_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/login',
@@ -188,7 +180,7 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/manage-5s-tasks',
-      builder: (context, state) => const Manage5STasksScreen(),
+      builder: (context, state) =>  Manage5STasksScreen(),
     ),
     GoRoute(
       path: '/create-5s-task',
@@ -204,13 +196,13 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/perform-audit',
-      builder: (context, state) => const PerformAuditScreen(),
+      builder: (context, state) => const AuditSheetsListScreen(),
     ),
     GoRoute(
       path: '/perform-audit/:id',
       builder: (context, state) {
         final sheet = state.extra as AuditSheet;
-        return PerformAuditDetailScreen(sheet: sheet);
+        return PerformAuditScreen(sheet: sheet);
       },
     ),
     // GoRoute(

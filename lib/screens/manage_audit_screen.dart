@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../models/audit_sheet.dart';
+import '../features/audit/data/default_audit_questions.dart';
+import '../features/audit/models/audit_sheet.dart';
 import '../providers/audit_sheet_provider.dart';
 import '../providers/zone_provider.dart';
 import '../theme/colors.dart';
-import '../data/default_audit_questions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ManageAuditScreen extends ConsumerStatefulWidget {

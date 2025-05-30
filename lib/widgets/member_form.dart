@@ -310,7 +310,7 @@ class _MemberFormState extends ConsumerState<MemberForm> {
                         // Format phone number to match the curl request format
                         String phoneNumber = _phoneController.text;
                         if (!phoneNumber.startsWith('0')) {
-                          phoneNumber = '0$phoneNumber';
+                          phoneNumber = '$phoneNumber';
                         }
 
                         // Get the role name from the selected role
@@ -326,7 +326,7 @@ class _MemberFormState extends ConsumerState<MemberForm> {
                         );
 
                         // Convert role name to API format (e.g., "Zone-Member" to "ZONE-MEMBER")
-                        final roleName = selectedRoleData['roleName'].toString().toUpperCase().replaceAll('-', '_');
+                        final roleName = selectedRoleData['roleName'].toString().toUpperCase();
                         
                         await widget.onSubmit({
                           'orgId': widget.orgId,

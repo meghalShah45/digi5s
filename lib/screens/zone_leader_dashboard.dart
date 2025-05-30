@@ -20,7 +20,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
             color: AppColors.textPrimary,
             size: 20,
           ),
-          onPressed: () => context.go('/'),
+          onPressed: () => context.push('/'),
         ),
         iconTheme: const IconThemeData(color: Color(0xFF2D2D2D)),
       ),
@@ -54,7 +54,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
           const Color(0xFFE3F2FD),
           const Color(0xFF1565C0),
           Icons.task_alt,
-          onTap: () => context.go('/manage-5s-tasks'),
+          onTap: () => context.push('/manage-5s-tasks'),
         ),
         buildGridItem(
           context,
@@ -70,7 +70,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
           const Color(0xFFE8F5E9),
           const Color(0xFF2E7D32),
           Icons.newspaper_outlined,
-          onTap: () => context.go('/what-is-news'),
+          onTap: () => context.push('/what-is-news'),
         ),
         buildGridItem(
           context,
@@ -78,7 +78,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
           const Color(0xFFE8EAF6),
           const Color(0xFF283593),
           Icons.school_outlined,
-          onTap: () => context.go('/5s-training-material'),
+          onTap: () => context.push('/5s-training-material'),
         ),
         buildGridItem(
           context,
@@ -86,7 +86,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
           const Color(0xFFE0F2F1),
           const Color(0xFF00695C),
           Icons.star_outline,
-          onTap: () => context.go('/best-practices'),
+          onTap: () => context.push('/best-practices'),
         ),
         buildGridItem(
           context,
@@ -94,7 +94,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
           const Color(0xFFFFF3E0),
           const Color(0xFFEF6C00),
           Icons.account_tree_outlined,
-          onTap: () => context.go('/5s-org-structure'),
+          onTap: () => context.push('/5s-org-structure'),
         ),
         buildGridItem(
           context,
@@ -102,7 +102,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
           const Color(0xFFF3E5F5),
           const Color(0xFF7B1FA2),
           Icons.assignment_outlined,
-          onTap: () => context.go('/perform-audit'),
+          onTap: () => context.push('/perform-audit'),
         ),
         buildGridItem(
           context,
@@ -110,7 +110,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
           const Color(0xFFFFEBEE),
           const Color(0xFFC62828),
           Icons.flash_on_outlined,
-          onTap: () => context.go('/flash-news'),
+          onTap: () => context.push('/flash-news'),
         ),
       ],
     );

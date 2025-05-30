@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/audit_sheet.dart';
+import '../features/audit/models/audit_sheet.dart';
 
 class AuditSheetService {
   static const String baseUrl = 'http://localhost:8081';
