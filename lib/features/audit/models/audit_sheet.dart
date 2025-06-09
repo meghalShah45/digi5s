@@ -7,6 +7,8 @@ class AuditSheet {
   final DateTime createdAt;
   final List<AuditQuestion> questions;
   final bool isActive;
+  final int maxScore;
+  final int totalQuestions;
 
   AuditSheet({
     required this.id,
@@ -17,6 +19,8 @@ class AuditSheet {
     required this.questions,
     this.isActive = true,
     required this.month,
+    this.maxScore = 0,
+    required this.totalQuestions,
   });
 
   Map<String, dynamic> toJson() {
@@ -29,6 +33,8 @@ class AuditSheet {
       'createdAt': createdAt.toIso8601String(),
       'questions': questions.map((q) => q.toJson()).toList(),
       'isActive': isActive,
+      'maxScore': maxScore,
+      'totalQuestions': totalQuestions,
     };
   }
 
@@ -44,6 +50,8 @@ class AuditSheet {
           .map((q) => AuditQuestion.fromJson(q as Map<String, dynamic>))
           .toList(),
       isActive: json['isActive'] as bool? ?? true,
+      maxScore: json['maxScore'] as int? ?? 0,
+      totalQuestions: json['totalQuestions'] as int? ?? 0,
     );
   }
 
@@ -56,6 +64,8 @@ class AuditSheet {
     DateTime? createdAt,
     List<AuditQuestion>? questions,
     bool? isActive,
+    int? maxScore,
+    int? totalQuestions,
   }) {
     return AuditSheet(
       id: id ?? this.id,
@@ -66,42 +76,36 @@ class AuditSheet {
       createdAt: createdAt ?? this.createdAt,
       questions: questions ?? this.questions,
       isActive: isActive ?? this.isActive,
+      maxScore: maxScore ?? this.maxScore,
+      totalQuestions: totalQuestions ?? this.totalQuestions,
     );
   }
 }
 
 class AuditQuestion {
-  final String id;
   final String question;
-  final int section; // 15, 25, 35, 45, 55
-  final double grade; // 0, 1, 2
-  final String? answer;
+  final String questionId;
+  double score;
 
   AuditQuestion({
-    required this.id,
     required this.question,
-    required this.section,
-    required this.grade,
-    this.answer,
+    required this.questionId,
+    this.score = 0.0,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'question': question,
-      'section': section,
-      'grade': grade,
-      if (answer != null) 'answer': answer,
+      'questionId': questionId,
+      'score': score,
     };
   }
 
   factory AuditQuestion.fromJson(Map<String, dynamic> json) {
     return AuditQuestion(
-      id: json['id'] as String,
       question: json['question'] as String,
-      section: json['section'] as int,
-      grade: (json['grade'] as num).toDouble(),
-      answer: json['answer'] as String?,
+      questionId: json['questionId'] as String,
+      score: (json['score'] as num?)?.toDouble() ?? 0.0,
     );
   }
 } 

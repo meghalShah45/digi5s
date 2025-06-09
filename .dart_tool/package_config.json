@@ -111,9 +111,9 @@
     },
     {
       "name": "fl_chart",
-      "rootUri": "file:///Users/meghal/.pub-cache/hosted/pub.dev/fl_chart-0.66.2",
+      "rootUri": "file:///Users/meghal/.pub-cache/hosted/pub.dev/fl_chart-0.65.0",
       "packageUri": "lib/",
-      "languageVersion": "3.2"
+      "languageVersion": "3.0"
     },
     {
       "name": "flutter",
@@ -530,7 +530,7 @@
       "languageVersion": "3.0"
     }
   ],
-  "generated": "2025-05-21T11:54:22.131787Z",
+  "generated": "2025-06-08T18:50:38.398023Z",
   "generator": "pub",
   "generatorVersion": "3.5.2",
   "flutterRoot": "file:///Users/meghal/development/flutter",

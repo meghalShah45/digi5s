@@ -131,7 +131,7 @@
         <entry key="fl_chart">
           <value>
             <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/fl_chart-0.66.2/lib" />
+              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/fl_chart-0.65.0/lib" />
             </list>
           </value>
         </entry>
@@ -632,7 +632,7 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/file_selector_macos-0.9.4+2/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/file_selector_platform_interface-2.6.2/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/file_selector_windows-0.9.3+4/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/fl_chart-0.66.2/lib" />
+      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/fl_chart-0.65.0/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_lints-2.0.3/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.26/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_riverpod-2.6.1/lib" />

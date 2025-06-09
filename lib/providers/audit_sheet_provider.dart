@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/audit/models/audit_sheet.dart';
+import '../features/audit/models/audit_submission.dart';
 import '../services/audit_sheet_service.dart';
 
 final auditSheetServiceProvider = Provider<AuditSheetService>((ref) {
@@ -19,8 +20,17 @@ final createAuditSheetProvider = FutureProvider.family<AuditSheet, CreateAuditSh
 }); 
 
 final auditSheetsProvider = FutureProvider.family<List<AuditSheet>, String>((ref, orgId) async {
-  final service = ref.watch(auditSheetServiceProvider);
-  return service.getAuditSheets(orgId);
+  try {
+    print('AuditSheetsProvider: Fetching sheets for orgId: $orgId');
+    final service = ref.watch(auditSheetServiceProvider);
+    final sheets = await service.getAuditSheets(orgId);
+    print('AuditSheetsProvider: Successfully fetched ${sheets.length} sheets');
+    return sheets;
+  } catch (e, stackTrace) {
+    print('AuditSheetsProvider: Error fetching sheets: $e');
+    print('AuditSheetsProvider: Stack trace: $stackTrace');
+    rethrow;
+  }
 });
 
 final deleteAuditSheetProvider = FutureProvider.family<void, String>((ref, id) async {
@@ -31,4 +41,9 @@ final deleteAuditSheetProvider = FutureProvider.family<void, String>((ref, id) a
 final updateAuditSheetProvider = FutureProvider.family<AuditSheet, AuditSheet>((ref, auditSheet) async {
   final service = ref.watch(auditSheetServiceProvider);
   return service.updateAuditSheet(auditSheet);
+});
+
+final auditSheetSubmissionsProvider = FutureProvider.family<List<AuditSubmission>, String>((ref, auditSheetId) async {
+  final service = ref.watch(auditSheetServiceProvider);
+  return service.getAuditSheetSubmissions(auditSheetId);
 }); 

@@ -44,7 +44,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final loginResponse = LoginResponse.fromJson(jsonResponse);
     if (loginResponse.statusCode == 200) {
-      
       if (loginResponse.data == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -63,6 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await _storage.write(key: 'userRole', value: loginResponse.data!.role);
       await _storage.write(key: 'userName', value: loginResponse.data!.fullName);
       await _storage.write(key: 'orgId', value: loginResponse.data!.orgId);
+      await _storage.write(key: 'zoneId', value: loginResponse.data!.zoneId);
 
       if (mounted) {
         // Navigate based on role

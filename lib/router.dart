@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'features/audit/screens/audit_statistics_screen.dart';
 import 'features/manuals/screens/manage_manual_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -23,7 +24,7 @@ import 'screens/my_5s_tasks_screen.dart';
 import 'screens/ss_training_material_screen.dart';
 import 'screens/module_selection_screen.dart';
 import 'screens/manage_best_practices_screen.dart';
-import 'screens/manage_audit_screen.dart';
+import 'screens/manage_audit/manage_audit_screen.dart';
 import 'features/audit/screens/audit_sheets_list_screen.dart';
 import 'features/audit/screens/perform_audit_screen.dart';
 import 'screens/flash_news_screen.dart';
@@ -203,6 +204,14 @@ final router = GoRouter(
       builder: (context, state) {
         final sheet = state.extra as AuditSheet;
         return PerformAuditScreen(sheet: sheet);
+      },
+    ),
+    GoRoute(
+      path: '/audit-statistics/:zoneId/:year',
+      builder: (context, state) {
+        final zoneId = state.pathParameters['zoneId'] ?? '';
+        final year = int.parse(state.pathParameters['year'] ?? DateTime.now().year.toString());
+        return AuditStatisticsScreen(zoneId: zoneId, year: year);
       },
     ),
     // GoRoute(

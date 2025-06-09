@@ -123,6 +123,43 @@ class _My5STasksScreenState extends State<My5STasksScreen> with SingleTickerProv
     }
   }
 
+  Future<void> _markAsCompleted(String taskId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:8081/tasks/request-approval/$taskId'),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'activity': 'Task Approve Request',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Refresh the tasks list after successful completion
+        await _fetchTasks();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Task marked as completed successfully')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to mark task as completed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -180,7 +217,7 @@ class _My5STasksScreenState extends State<My5STasksScreen> with SingleTickerProv
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final task = tasks[index];
-        final Color statusColor = task.status == 'PENDING'
+        final Color statusColor = task.status == 'PENDING' || task.status == 'PENDING_APPROVAL'
             ? const Color(0xFFFFF9C4)
             : task.status == 'COMPLETED'
                 ? const Color(0xFFE8F5E9)
@@ -213,11 +250,46 @@ class _My5STasksScreenState extends State<My5STasksScreen> with SingleTickerProv
                 ],
               ),
               const SizedBox(height: 10),
-              Text(
-                task.taskName,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              SizedBox(
+                height: 50,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        task.taskName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    if (task.taskPhotos.isNotEmpty) ...[
+                      // const SizedBox(height: 10),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        scrollDirection: Axis.horizontal,
+                        itemCount: task.taskPhotos.length,
+                        itemBuilder: (context, photoIndex) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                task.taskPhotos[photoIndex].path,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(height: 4),
@@ -225,30 +297,6 @@ class _My5STasksScreenState extends State<My5STasksScreen> with SingleTickerProv
                 task.description,
                 style: const TextStyle(fontSize: 14),
               ),
-              if (task.taskPhotos.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 100,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: task.taskPhotos.length,
-                    itemBuilder: (context, photoIndex) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            task.taskPhotos[photoIndex].path,
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
               if (task.status == 'PENDING') ...[
                 const SizedBox(height: 14),
                 SizedBox(
@@ -262,9 +310,28 @@ class _My5STasksScreenState extends State<My5STasksScreen> with SingleTickerProv
                       ),
                     ),
                     onPressed: () {
-                      // TODO: Implement mark as completed functionality
+                      _markAsCompleted(task.id);
                     },
                     child: const Text('Mark as Completed'),
+                  ),
+                ),
+              ],
+              if (task.status == 'PENDING_APPROVAL') ...[
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFC107),
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () {
+                      _markAsCompleted(task.id);
+                    },
+                    child: const Text('Pending for Approval'),
                   ),
                 ),
               ],
