@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import '../../../features/audit/data/default_audit_questions.dart';
 import '../../../features/audit/models/audit_sheet.dart';
 import '../../../theme/colors.dart';
+import '../../features/audit/models/audit_submission.dart';
 import '../../providers/audit_sheet_provider.dart';
 import '../../providers/zone_provider.dart';
 import 'widgets/create_audit_sheet.dart';
 import 'widgets/audit_editor_screen.dart';
 import 'widgets/add_questions_page.dart';
+import '../../../features/audit/screens/perform_audit_screen.dart';
 
 class ManageAuditScreen extends ConsumerStatefulWidget {
   const ManageAuditScreen({Key? key}) : super(key: key);
@@ -103,6 +105,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
           Expanded(
             child: _buildAuditList(),
           ),
+          SizedBox(height: 80,)
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -260,110 +263,11 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
             }
 
             return ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.only(top: 10),
               itemCount: auditSheets.length,
               itemBuilder: (context, index) {
                 final sheet = auditSheets[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    title: Text(
-                      sheet.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              size: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _formatDate(sheet.createdAt),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Icon(
-                              Icons.question_answer,
-                              size: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${sheet.questions.length} questions',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Icon(
-                              Icons.score,
-                              size: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    trailing: PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, color: AppColors.textSecondary),
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          _editAuditSheet(sheet);
-                        } else if (value == 'delete') {
-                          _deleteAuditSheet(sheet);
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, color: AppColors.primary),
-                              SizedBox(width: 8),
-                              Text('Edit'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Delete'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+                return _buildAuditSheetCard(sheet);
               },
             );
           },
@@ -420,8 +324,48 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  void _editAuditSheet(AuditSheet sheet) {
-    _showAuditEditor(sheet);
+  Future<bool> _checkForSubmissions(String auditSheetId) async {
+    try {
+      final submissions = await ref.read(auditSheetSubmissionsProvider(auditSheetId).future);
+      return submissions.isNotEmpty;
+    } catch (e) {
+      print('Error checking submissions: $e');
+      return false;
+    }
+  }
+
+  void _editAuditSheet(AuditSheet sheet) async {
+    try {
+      // Check for submissions first
+      final hasSubmissions = await _checkForSubmissions(sheet.id);
+      if (hasSubmissions) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot edit this audit sheet because it has existing submissions. Please create a new audit sheet instead.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+
+      _showAuditEditor(sheet);
+      if (orgId != null) {
+        ref.refresh(auditSheetsProvider(orgId!));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 
   void _showAuditEditor(AuditSheet? sheet) {
@@ -437,45 +381,273 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
     });
   }
 
-  Future<void> _deleteAuditSheet(AuditSheet sheet) async {
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Audit Sheet'),
-        content: Text('Are you sure you want to delete "${sheet.name}"?'),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await ref.read(deleteAuditSheetProvider(sheet.id).future);
-                if (orgId != null) {
-                  ref.refresh(auditSheetsProvider(orgId!));
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error deleting audit sheet: $e')),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
+  void _deleteAuditSheet(AuditSheet sheet) async {
+    try {
+      // Check for submissions first
+      final hasSubmissions = await _checkForSubmissions(sheet.id);
+      if (hasSubmissions) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot delete this audit sheet because it has existing submissions.'),
               backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Show confirmation dialog
+      final shouldDelete = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete Audit Sheet'),
+          content: const Text('Are you sure you want to delete this audit sheet? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldDelete == true) {
+        await ref.read(deleteAuditSheetProvider(sheet.id).future);
+        if (orgId != null) {
+          ref.refresh(auditSheetsProvider(orgId!));
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Audit sheet deleted successfully')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting audit sheet: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _viewSubmissions(AuditSheet sheet) async {
+    try {
+      final submissions = await ref.read(auditSheetSubmissionsProvider(sheet.id).future);
+      if (!mounted) return;
+
+      if (submissions.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No submissions found for this audit sheet.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Submissions for ${sheet.name}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: submissions.length,
+                    itemBuilder: (context, index) {
+                      AuditSubmission submission = submissions[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          title: Text(
+                            'Submitted by: ${submission.submittedBy}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Date: ${_formatDate(DateTime.parse(submission.submittedAt!))}'),
+                              Text('Score: ${submission.totalScore}/${submission.totalScore}'),
+
+                            ],
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.visibility),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => PerformAuditScreen(
+                                    sheet: sheet,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading submissions: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildAuditSheetCard(AuditSheet sheet) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        sheet.name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Created: ${_formatDate(sheet.createdAt)}',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        _editAuditSheet(sheet);
+                        break;
+                      case 'delete':
+                        _deleteAuditSheet(sheet);
+                        break;
+                      case 'view':
+                        _viewSubmissions(sheet);
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'view',
+                      child: Row(
+                        children: [
+                          Icon(Icons.visibility),
+                          SizedBox(width: 8),
+                          Text('View Submissions'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit),
+                          SizedBox(width: 8),
+                          Text('Edit'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete),
+                          SizedBox(width: 8),
+                          Text('Delete'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Questions: ${sheet.questions.length}',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
               ),
             ),
-            child: const Text('Delete'),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

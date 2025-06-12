@@ -424,22 +424,22 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
               ),
             ],
           ),
-          if (_latestSubmission!.submittedBy != null) ...[
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.person, size: 16, color: AppColors.textSecondary),
-                const SizedBox(width: 8),
-                Text(
-                  'Submitted by: ${_latestSubmission!.submittedBy}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          // if (_latestSubmission!.submittedBy != null) ...[
+          //   const SizedBox(height: 4),
+          //   Row(
+          //     children: [
+          //       Icon(Icons.person, size: 16, color: AppColors.textSecondary),
+          //       const SizedBox(width: 8),
+          //       Text(
+          //         'Submitted by: ${_latestSubmission!.submittedBy}',
+          //         style: TextStyle(
+          //           fontSize: 14,
+          //           color: AppColors.textSecondary,
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ],
         ],
       ),
     );

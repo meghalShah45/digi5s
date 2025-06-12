@@ -54,7 +54,7 @@ class _AuditEditorScreenState extends ConsumerState<AuditEditorScreen> {
     } else {
       selectedYear = DateTime.now().year;
       selectedMonth = months[DateTime.now().month - 1];
-      maxScoreController.text = '3'; // Default max score
+      maxScoreController.text = '0'; // Default max score
     }
     Future.microtask(() => ref.read(zoneListProvider.notifier).fetchZones());
   }

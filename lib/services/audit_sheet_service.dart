@@ -301,11 +301,20 @@ class AuditSheetService {
         );
       } else {
         final errorBody = jsonDecode(response.body);
+        // Check for specific error case
+        if (response.statusCode == 400 && 
+            errorBody['error'] == 'This audit sheet has existing submissions and cannot be modified') {
+          throw Exception('Cannot update this audit sheet because it has existing submissions. Please create a new audit sheet instead.');
+        }
         throw Exception('Failed to update audit sheet: ${errorBody['message'] ?? response.statusCode}');
       }
     } catch (e) {
       if (e is FormatException) {
         throw Exception('Invalid response format from server');
+      }
+      // Re-throw the specific error message if it's our custom error
+      if (e.toString().contains('Cannot update this audit sheet because it has existing submissions')) {
+        rethrow;
       }
       throw Exception('Error updating audit sheet: $e');
     }
