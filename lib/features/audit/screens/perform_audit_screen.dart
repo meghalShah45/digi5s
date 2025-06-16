@@ -8,18 +8,18 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/colors.dart';
 import '../models/audit_sheet.dart';
-import '../models/audit_response.dart';
 import '../models/audit_submission.dart';
 import '../../../providers/audit_sheet_provider.dart';
-import '../../../services/audit_sheet_service.dart';
 
 
 class PerformAuditScreen extends ConsumerStatefulWidget {
   final AuditSheet sheet;
+  final String? submissionId;  // Optional parameter to view specific submission
   
-  const PerformAuditScreen({
+  PerformAuditScreen({
     super.key,
     required this.sheet,
+    this.submissionId,
   });
 
   @override
@@ -36,6 +36,10 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
   bool _isLoading = true;
   bool _hasSubmissions = false;
   AuditSubmission? _latestSubmission;
+  String? _currentUserId;
+  bool _canPerformAudit = true;
+  String? _userRole;
+  List<AuditSubmission> _allSubmissions = [];
 
   @override
   void initState() {
@@ -49,6 +53,11 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
     });
 
     try {
+      // Get current user ID and role
+      const storage = FlutterSecureStorage();
+      _currentUserId = await storage.read(key: 'userId');
+      _userRole = await storage.read(key: 'userRole');
+
       // Load questions from the audit sheet and ensure unique IDs
       _questions.addAll(widget.sheet.questions.map((q) => AuditQuestion(
         questionId: '${q.questionId}_${DateTime.now().millisecondsSinceEpoch}_${_questions.length}',
@@ -61,35 +70,87 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       if (submissions.isNotEmpty) {
         setState(() {
           _hasSubmissions = true;
-          _latestSubmission = submissions.first;  // Set the latest submission
-          
-          // Pre-fill data from the latest submission
-          for (var response in _latestSubmission!.responses!) {
-            final question = _questions.firstWhere(
-              (q) => q.questionId.split('_')[0] == response.questionId,
-              orElse: () => _questions.first,
+          _allSubmissions = submissions;
+
+          // If submissionId is provided, find that specific submission
+          if (widget.submissionId != null) {
+            _latestSubmission = submissions.firstWhere(
+              (submission) => submission.submissionId == widget.submissionId,
             );
-            
-            // Set the score
-            question.score = response.score!.toDouble();
-            
-            // Set the remarks
-            if (response.remarks!.isNotEmpty) {
-              _remarks[question.questionId] = response.remarks!;
-            }
-            
-            // Set the photos
-            if (response.photos!.isNotEmpty) {
-              _photos[question.questionId] = response.photos!;
+            _canPerformAudit = false;
+            _isAuditComplete = true;
+          } else {
+            _latestSubmission = submissions.first;
+
+            // Set permissions based on user role
+            if (_userRole == 'zone-admin' || _userRole == 'SUPER-ADMIN' || _userRole!.contains('ADMIN')) {
+              _canPerformAudit = false;
+              _isAuditComplete = true;
+            } else if (_userRole.toString().toLowerCase() == 'zone-leader') {
+              // Check if current user has already submitted
+              if (_currentUserId != null) {
+                // Find user's submission
+                final userSubmission = submissions.firstWhere(
+                  (submission) => submission.submittedBy == _currentUserId,
+                );
+                
+                if (userSubmission != null) {
+                  _canPerformAudit = false;
+                  _isAuditComplete = true;
+                  _latestSubmission = userSubmission;
+                } else {
+                  _canPerformAudit = true;
+                  _isAuditComplete = false;
+                }
+              }
+            } else {
+              _canPerformAudit = false;
+              _isAuditComplete = true;
             }
           }
           
-          // Calculate total score and percentage
-          _calculateTotalScore();
-          
-          // Set audit as complete since we're viewing a submission
-          _isAuditComplete = true;
+          // Pre-fill data from the submission only if user can't perform audit
+          if (!_canPerformAudit && _latestSubmission != null) {
+            for (var response in _latestSubmission!.responses!) {
+              final question = _questions.firstWhere(
+                (q) => q.questionId.split('_')[0] == response.questionId,
+                orElse: () => _questions.first,
+              );
+
+              if(response.score != null)
+                question.score = response.score!.toDouble();
+              
+              if (response.remarks != null && response.remarks!.isNotEmpty) {
+                _remarks[question.questionId] = response.remarks!;
+              }
+              
+              if (response.photos!.isNotEmpty) {
+                _photos[question.questionId] = response.photos!;
+              }
+            }
+            
+            _calculateTotalScore();
+          }
         });
+      } else {
+        // If no submissions and user is zone member, redirect back after 5 seconds
+        if (_userRole?.toLowerCase() == 'zone-member') {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No submissions available to view.'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 5),
+              ),
+            );
+            
+            // Wait for 5 seconds then redirect back
+            await Future.delayed(const Duration(seconds: 0));
+            if (mounted) {
+              context.pop();
+            }
+          }
+        }
       }
     } catch (e) {
       print('Error initializing questions: $e');
@@ -117,18 +178,18 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
         maxWidth: 1000,
       );
       
-      // if (image != null && mounted) {
-      //   setState(() {
-      //     if (!_photos.containsKey(questionId)) {
-      //       _photos[questionId] = [];
-      //     }
-      //     _photos[questionId]!.add(image.path!.toString());
-      //   });
-      //
-      //   // Print debug information
-      //   print('Photo added for question $questionId: ${image.path}');
-      //   print('Current photos for question: ${_photos[questionId]}');
-      // }
+      if (image != null && mounted) {
+        setState(() {
+          if (!_photos.containsKey(questionId)) {
+            _photos[questionId] = [];
+          }
+          _photos[questionId]!.add(Photos(url: image.path));
+        });
+
+        // Print debug information
+        print('Photo added for question $questionId: ${image.path}');
+        print('Current photos for question: ${_photos[questionId]}');
+      }
     } catch (e) {
       print('Error adding photo: $e');
       if (mounted) {
@@ -307,7 +368,8 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         title: Text(
-          _hasSubmissions ? 'View Audit Submission' : 'Perform Audit',
+          _userRole == 'zone-admin' ? 'View All Submissions' : 
+          _hasSubmissions && !_canPerformAudit ? 'View Audit Submission' : 'Perform Audit',
           style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 20,
@@ -319,7 +381,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (!_isAuditComplete && !_hasSubmissions)
+          if (!_isAuditComplete && _canPerformAudit)
             TextButton.icon(
               onPressed: _completeAudit,
               icon: const Icon(Icons.check_circle_outline),
@@ -333,39 +395,165 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_hasSubmissions) ...[
+              if (_userRole == 'zone-admin') ...[
+                _buildAllSubmissionsList(),
+              ] else if (_hasSubmissions && !_canPerformAudit) ...[
                 _buildSubmissionInfo(),
                 const SizedBox(height: 24),
               ],
-              ..._questions.map((question) => _buildQuestionCard(question)).toList(),
-              const SizedBox(height: 24),
-              if (!_hasSubmissions) ...[
-                _buildScoreCard(),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _isAuditComplete ? _completeAudit : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
+              if (!_canPerformAudit && _hasSubmissions && _userRole != 'zone-admin') ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red),
                   ),
-                  child: const Text(
-                    'Submit Audit',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'You have already submitted an audit for this sheet. You cannot submit another one.',
+                          style: TextStyle(
+                            color: Colors.red[700],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 24),
+              ],
+              if (_userRole != 'zone-admin') ...[
+                ..._questions.map((question) => _buildQuestionCard(question)).toList(),
+                const SizedBox(height: 24),
+                if (_canPerformAudit) ...[
+                  _buildScoreCard(),
+                  const SizedBox(height: 24),
+                  // ElevatedButton(
+                  //   onPressed: _isAuditComplete ? _completeAudit : null,
+                  //   style: ElevatedButton.styleFrom(
+                  //     backgroundColor: AppColors.primary,
+                  //     minimumSize: const Size(double.infinity, 56),
+                  //     shape: RoundedRectangleBorder(
+                  //       borderRadius: BorderRadius.circular(12),
+                  //     ),
+                  //     elevation: 0,
+                  //   ),
+                  //   child: const Text(
+                  //     'Submit Audit',
+                  //     style: TextStyle(
+                  //       color: Colors.white,
+                  //       fontSize: 16,
+                  //       fontWeight: FontWeight.w600,
+                  //     ),
+                  //   ),
+                  // ),
+                ],
               ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAllSubmissionsList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'All Submissions',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ..._allSubmissions.map((submission) => Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: ExpansionTile(
+            title: Text(
+              'Submitted by: ${submission.submittedBy}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              'Date: ${_formatDate(DateTime.parse(submission.submittedAt!))}\nScore: ${submission.totalScore}/${widget.sheet.maxScore} (${submission.percentage}%)',
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...submission.responses!.map((response) {
+                      // Find the original question from the audit sheet
+                      final originalQuestion = widget.sheet.questions.firstWhere(
+                        (q) => q.questionId == response.questionId,
+                        orElse: () => widget.sheet.questions.first,
+                      );
+                      
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            originalQuestion.question,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('Score: ${response.score}/${widget.sheet.maxScore}'),
+                          if (response.remarks!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text('Remarks: ${response.remarks}'),
+                          ],
+                          if (response.photos!.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Text('Photos:'),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: 100,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: response.photos!.length,
+                                itemBuilder: (context, index) {
+                                  final photo = response.photos![index];
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        photo.url.toString(),
+                                        height: 100,
+                                        width: 100,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return _buildErrorContainer();
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                          const Divider(),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        )).toList(),
+      ],
     );
   }
 
@@ -389,7 +577,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Latest Submission',
+            'About this Submission',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -476,7 +664,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<double>(
-                  value: question.score,  // Set the pre-filled score
+                  value: question.score,
                   decoration: const InputDecoration(
                     labelText: 'Score',
                     border: OutlineInputBorder(),
@@ -487,7 +675,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
                       child: Text(score.toString()),
                     );
                   }).toList(),
-                  onChanged: (_isAuditComplete || _hasSubmissions)
+                  onChanged: (!_canPerformAudit)
                       ? null
                       : (value) {
                           if (value != null) {
@@ -498,7 +686,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
               ),
               const SizedBox(width: 16),
               IconButton(
-                onPressed: (_isAuditComplete || _hasSubmissions)
+                onPressed: (!_canPerformAudit)
                     ? null
                     : () => _addPhoto(question.questionId),
                 icon: const Icon(Icons.photo_library),
@@ -508,8 +696,8 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
           ),
           const SizedBox(height: 16),
           TextField(
-            enabled: !_isAuditComplete && !_hasSubmissions,
-            controller: TextEditingController(text: _remarks[question.questionId] ?? ''),  // Set pre-filled remarks
+            enabled: _canPerformAudit,
+            controller: TextEditingController(text: _remarks[question.questionId] ?? ''),
             decoration: const InputDecoration(
               labelText: 'Remarks',
               border: OutlineInputBorder(),
@@ -541,19 +729,30 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
                         padding: const EdgeInsets.only(right: 8),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            photo.url.toString(),
-                            height: 100,
-                            width: 100,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              print('Error loading image: $error');
-                              return _buildErrorContainer();
-                            },
-                          ),
+                          child: photo.url.toString().startsWith('http')
+                              ? Image.network(
+                                  photo.url.toString(),
+                                  height: 100,
+                                  width: 100,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    print('Error loading network image: $error');
+                                    return _buildErrorContainer();
+                                  },
+                                )
+                              : Image.file(
+                                  File(photo.url.toString()),
+                                  height: 100,
+                                  width: 100,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    print('Error loading local image: $error');
+                                    return _buildErrorContainer();
+                                  },
+                                ),
                         ),
                       ),
-                      if (!_isAuditComplete && !_hasSubmissions)
+                      if (_canPerformAudit)
                         Positioned(
                           top: 4,
                           right: 12,
@@ -596,7 +795,18 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       height: 100,
       width: 100,
       color: Colors.grey[300],
-      child: const Icon(Icons.error),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.error, color: Colors.red),
+          SizedBox(height: 4),
+          Text(
+            'Failed to load image',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 
@@ -622,7 +832,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Total Score: ${_totalScore.toStringAsFixed(1)}/${_questions.length * 2} (${_percentageScore.toStringAsFixed(1)}%)',
+            'Total Score: ${_totalScore.toStringAsFixed(1)}/${_questions.length * widget.sheet.maxScore} (${_percentageScore.toStringAsFixed(1)}%)',
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,

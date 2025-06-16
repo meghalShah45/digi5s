@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'base_dashboard_screen.dart';
 
 class ZoneMemberDashboard extends StatelessWidget {
@@ -28,6 +29,14 @@ class ZoneMemberDashboard extends StatelessWidget {
             Icons.calendar_today,
             () {
               // Navigate to team calendar
+            },
+          ),
+          _buildDashboardCard(
+            context,
+            'View Audit Sheet',
+            Icons.calendar_today,
+            () {
+              context.push('/perform-audit');
             },
           ),
           _buildDashboardCard(

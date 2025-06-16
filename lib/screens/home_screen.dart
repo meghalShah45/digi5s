@@ -147,53 +147,6 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget buildGridItem(
-    BuildContext context,
-    String title,
-    Color bgColor,
-    Color iconColor,
-    IconData icon, {
-      VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                size: 20,
-                color: iconColor,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF2D2D2D),
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildSpeedDial(BuildContext context) {
     return ElevatedButton(
@@ -218,6 +171,54 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
+
+Widget buildGridItem(
+    BuildContext context,
+    String title,
+    Color bgColor,
+    Color iconColor,
+    IconData icon, {
+      VoidCallback? onTap,
+    }) {
+  return InkWell(
+    onTap: onTap,
+    child: Container(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: iconColor,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF2D2D2D),
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 extension ColorExtension on Color {
   Color get darker {
     return Color.fromARGB(

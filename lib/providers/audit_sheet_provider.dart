@@ -19,11 +19,11 @@ final createAuditSheetProvider = FutureProvider.family<AuditSheet, CreateAuditSh
   return service.createAuditSheet(params.auditSheet, params.zoneId);
 }); 
 
-final auditSheetsProvider = FutureProvider.family<List<AuditSheet>, String>((ref, orgId) async {
+final auditSheetsProvider = FutureProvider.family<List<AuditSheet>, ({String orgId, String? zoneId})>((ref, params) async {
   try {
-    print('AuditSheetsProvider: Fetching sheets for orgId: $orgId');
+    print('AuditSheetsProvider: Fetching sheets for orgId: ${params.orgId}${params.zoneId != null ? ', zoneId: ${params.zoneId}' : ''}');
     final service = ref.watch(auditSheetServiceProvider);
-    final sheets = await service.getAuditSheets(orgId);
+    final sheets = await service.getAuditSheets(params.orgId, zoneId: params.zoneId);
     print('AuditSheetsProvider: Successfully fetched ${sheets.length} sheets');
     return sheets;
   } catch (e, stackTrace) {

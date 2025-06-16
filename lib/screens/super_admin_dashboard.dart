@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/colors.dart';
+import 'home_screen.dart';
 
 class SuperAdminDashboard extends StatelessWidget {
   const SuperAdminDashboard({super.key});
@@ -22,19 +23,74 @@ class SuperAdminDashboard extends StatelessWidget {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: _ActiveOrgsPreview(),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add_business, color: AppColors.secondaryLight),
-        label: const Text('Add Organization', style: TextStyle(color: AppColors.secondaryLight, fontWeight: FontWeight.bold)),
-        onPressed: () => context.push('/super-admin/add-organization'),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: _buildMainGrid(context),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // _buildSpeedDial(context),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+
+Widget _buildMainGrid(BuildContext context) {
+  return GridView.count(
+    crossAxisCount: 2,
+    mainAxisSpacing: 15,
+    crossAxisSpacing: 15,
+    childAspectRatio: 1.05,
+    children: [
+      buildGridItem(
+        context,
+        'Manage Zone &\nmembers',
+        const Color(0xFFE8F5E9),
+        const Color(0xFF2E7D32),
+        Icons.groups_outlined,
+        onTap: () => context.push('/manage-zone'),
+      ),
+      buildGridItem(
+        context,
+        'Manage Active Organizations',
+        const Color(0xFFFCE4EC),
+        const Color(0xFFC2185B),
+        Icons.manage_accounts_outlined,
+        onTap: () => context.push('/super-admin/active-organizations'),
+      ),
+      buildGridItem(
+        context,
+        'Manage\nAudit',
+        const Color(0xFFF3E5F5),
+        const Color(0xFF7B1FA2),
+        Icons.assignment_outlined,
+        onTap: () => context.push('/manage-audit'),
+      ),
+    ],
+  );
+}
+
 
 class _ActiveOrgsPreview extends StatelessWidget {
   const _ActiveOrgsPreview();

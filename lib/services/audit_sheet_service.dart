@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../features/audit/models/audit_response.dart';
 import '../features/audit/models/audit_sheet.dart';
@@ -9,6 +10,8 @@ class AuditSheetService {
 
   Future<AuditSheet> createAuditSheet(AuditSheet auditSheet, String zoneId) async {
     try {
+      final storage = const FlutterSecureStorage();
+      final userId = await storage.read(key: 'userId') ?? '';
       print('Creating audit sheet with data: ${jsonEncode({
         'name': auditSheet.name,
         'zoneId': zoneId,
@@ -16,6 +19,7 @@ class AuditSheetService {
         'month': auditSheet.month,
         'maxScore': auditSheet.maxScore,
         'totalQuestions': auditSheet.questions.length,
+        "userId": userId,
         'questions': auditSheet.questions.map((q) => {
           'questionId': q.questionId,
           'question': q.question,
@@ -35,6 +39,7 @@ class AuditSheetService {
           'month': auditSheet.month,
           'maxScore': auditSheet.maxScore,
           'totalQuestions': auditSheet.questions.length,
+          "userId": userId,
           'questions': auditSheet.questions.map((q) => {
             'questionId': q.questionId,
             'question': q.question,
@@ -87,21 +92,36 @@ class AuditSheetService {
         );
       } else {
         final errorBody = jsonDecode(response.body);
+        // Check for specific error case
+        if (response.statusCode == 403 && 
+            errorBody['error'] == 'Only zone leaders can create audit sheets') {
+          throw Exception('Only zone leaders can create audit sheets');
+        }
         throw Exception('Failed to create audit sheet: ${errorBody['message'] ?? response.statusCode}');
       }
     } catch (e) {
       if (e is FormatException) {
         throw Exception('Invalid response format from server');
       }
+      // Re-throw the specific error message if it's our custom error
+      if (e.toString().contains('Only zone leaders can create audit sheets')) {
+        rethrow;
+      }
       throw Exception('Error creating audit sheet: $e');
     }
   }
 
-  Future<List<AuditSheet>> getAuditSheets(String orgId) async {
+  Future<List<AuditSheet>> getAuditSheets(String orgId, {String? zoneId}) async {
     try {
-      print('Fetching audit sheets for orgId: $orgId');
+      print('Fetching audit sheets for orgId: $orgId${zoneId != null ? ', zoneId: $zoneId' : ''}');
+      final queryParams = {
+        'orgId': orgId,
+        if (zoneId != null) 'zoneId': zoneId,
+      };
+      final uri = Uri.parse('$baseUrl/audit-sheets').replace(queryParameters: queryParams);
+      
       final response = await http.get(
-        Uri.parse('$baseUrl/audit-sheets?orgId=$orgId'),
+        uri,
         headers: {
           'accept': 'application/json',
         },
@@ -223,6 +243,8 @@ class AuditSheetService {
 
   Future<AuditSheet> updateAuditSheet(AuditSheet auditSheet) async {
     try {
+      final storage = const FlutterSecureStorage();
+      final userId = await storage.read(key: 'userId') ?? '';
       print('Updating audit sheet with data: ${jsonEncode({
         'name': auditSheet.name,
         'zoneId': auditSheet.zoneId,
@@ -230,6 +252,7 @@ class AuditSheetService {
         'month': auditSheet.month,
         'maxScore': auditSheet.maxScore,
         'totalQuestions': auditSheet.questions.length,
+        'userId': userId,
         'questions': auditSheet.questions.map((q) => {
           'questionId': q.questionId,
           'question': q.question,
@@ -249,6 +272,7 @@ class AuditSheetService {
           'month': auditSheet.month,
           'maxScore': auditSheet.maxScore,
           'totalQuestions': auditSheet.questions.length,
+          'userId': userId,
           'questions': auditSheet.questions.map((q) => {
             'questionId': q.questionId,
             'question': q.question,
@@ -322,6 +346,8 @@ class AuditSheetService {
 
   Future<List<AuditSubmission>> getAuditSheetSubmissions(String auditSheetId) async {
     try {
+      final storage = const FlutterSecureStorage();
+      final userId = await storage.read(key: 'userId') ?? '';
       print('Fetching submissions for audit sheet: $auditSheetId');
       final response = await http.get(
         Uri.parse('$baseUrl/audit-sheets/$auditSheetId/submissions'),

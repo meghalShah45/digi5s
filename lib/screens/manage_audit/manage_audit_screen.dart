@@ -117,7 +117,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
             ),
           );
           if (newAuditSheet != null) {
-            ref.refresh(auditSheetsProvider(orgId!));
+            ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
           }
         },
         backgroundColor: AppColors.primary,
@@ -163,7 +163,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
               ),
               Consumer(
                 builder: (context, ref, child) {
-                  final auditSheetsAsync = ref.watch(auditSheetsProvider(orgId ?? ''));
+                  final auditSheetsAsync = ref.watch(auditSheetsProvider((orgId: orgId ?? '', zoneId: null)));
                   return auditSheetsAsync.when(
                     data: (sheets) => Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -212,7 +212,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
 
     return Consumer(
       builder: (context, ref, child) {
-        final auditSheetsAsync = ref.watch(auditSheetsProvider(orgId!));
+        final auditSheetsAsync = ref.watch(auditSheetsProvider((orgId: orgId!, zoneId: null)));
         
         return auditSheetsAsync.when(
           data: (auditSheets) {
@@ -307,7 +307,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      ref.refresh(auditSheetsProvider(orgId!));
+                      ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
                     },
                     child: const Text('Retry'),
                   ),
@@ -353,7 +353,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
 
       _showAuditEditor(sheet);
       if (orgId != null) {
-        ref.refresh(auditSheetsProvider(orgId!));
+        ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
       }
     } catch (e) {
       if (mounted) {
@@ -376,7 +376,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
       ),
     ).then((_) {
       if (orgId != null) {
-        ref.refresh(auditSheetsProvider(orgId!));
+        ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
       }
     });
   }
@@ -420,7 +420,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
       if (shouldDelete == true) {
         await ref.read(deleteAuditSheetProvider(sheet.id).future);
         if (orgId != null) {
-          ref.refresh(auditSheetsProvider(orgId!));
+          ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
         }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -442,7 +442,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
 
   void _viewSubmissions(AuditSheet sheet) async {
     try {
-      final submissions = await ref.read(auditSheetSubmissionsProvider(sheet.id).future);
+      List<AuditSubmission> submissions = await ref.read(auditSheetSubmissionsProvider(sheet.id).future);
       if (!mounted) return;
 
       if (submissions.isEmpty) {
@@ -527,6 +527,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
                                 MaterialPageRoute(
                                   builder: (context) => PerformAuditScreen(
                                     sheet: sheet,
+                                    submissionId: submission.submissionId,
                                   ),
                                 ),
                               );

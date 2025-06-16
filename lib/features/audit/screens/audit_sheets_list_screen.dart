@@ -76,7 +76,7 @@ class _AuditSheetsListScreenState extends ConsumerState<AuditSheetsListScreen> {
           Expanded(
             child: Consumer(
               builder: (context, ref, child) {
-                final auditSheetsAsync = ref.watch(auditSheetsProvider(orgId!));
+                final auditSheetsAsync = ref.watch(auditSheetsProvider((orgId: orgId!, zoneId: zoneId)));
                 
                 return auditSheetsAsync.when(
                   data: (auditSheets) {
@@ -185,7 +185,7 @@ class _AuditSheetsListScreenState extends ConsumerState<AuditSheetsListScreen> {
               ),
               Consumer(
                 builder: (context, ref, child) {
-                  final auditSheetsAsync = ref.watch(auditSheetsProvider(orgId!));
+                  final auditSheetsAsync = ref.watch(auditSheetsProvider((orgId: orgId!, zoneId: zoneId)));
                   return auditSheetsAsync.when(
                     data: (sheets) => Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

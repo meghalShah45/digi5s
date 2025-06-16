@@ -34,6 +34,12 @@ class ActiveOrganizationsScreen extends StatelessWidget {
         elevation: 0.5,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Icons.add_business, color: AppColors.secondaryLight),
+        label: const Text('Add Organization', style: TextStyle(color: AppColors.secondaryLight, fontWeight: FontWeight.bold)),
+        onPressed: () => context.push('/super-admin/add-organization'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -117,17 +123,17 @@ class ActiveOrganizationsScreen extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Icon(Icons.receipt_long, color: AppColors.textSecondary, size: 18),
-                              const SizedBox(width: 6),
-                              Text('GST: $gst', style: const TextStyle(color: AppColors.textSecondary)),
-                              const SizedBox(width: 18),
-                              Icon(Icons.credit_card, color: AppColors.textSecondary, size: 18),
-                              const SizedBox(width: 6),
-                              Text('PAN: $pan', style: const TextStyle(color: AppColors.textSecondary)),
-                            ],
-                          ),
+                          // Row(
+                          //   children: [
+                          //     Icon(Icons.receipt_long, color: AppColors.textSecondary, size: 18),
+                          //     const SizedBox(width: 6),
+                          //     Text('GST: $gst', style: const TextStyle(color: AppColors.textSecondary)),
+                          //     const SizedBox(width: 18),
+                          //     Icon(Icons.credit_card, color: AppColors.textSecondary, size: 18),
+                          //     const SizedBox(width: 6),
+                          //     Text('PAN: $pan', style: const TextStyle(color: AppColors.textSecondary)),
+                          //   ],
+                          // ),
                           if (plan == 'Free Trial' && daysLeft != null) ...[
                             const SizedBox(height: 6),
                             Text('Days Left: $daysLeft', style: const TextStyle(color: AppColors.warning)),
