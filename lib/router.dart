@@ -207,11 +207,11 @@ final router = GoRouter(
       },
     ),
     GoRoute(
-      path: '/audit-statistics/:zoneId/:year',
+      path: '/audit-statistics/:zoneId',
       builder: (context, state) {
         final zoneId = state.pathParameters['zoneId'] ?? '';
         final year = int.parse(state.pathParameters['year'] ?? DateTime.now().year.toString());
-        return AuditStatisticsScreen(zoneId: zoneId, year: year);
+        return AuditStatisticsScreen(zoneId: zoneId);
       },
     ),
     // GoRoute(

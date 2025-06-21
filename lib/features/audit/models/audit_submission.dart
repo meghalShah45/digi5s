@@ -48,7 +48,7 @@ class AuditSubmission {
 class Responses {
   String? questionId;
   String? question;
-  int? score;
+  String? score;
   String? remarks;
   List<Photos>? photos;
 
@@ -58,7 +58,7 @@ class Responses {
   Responses.fromJson(Map<String, dynamic> json) {
     questionId = json['questionId'];
     question = json['question'];
-    score = json['score'];
+    score = json['score'].toString();
     remarks = json['remarks'];
     if (json['photos'] != null) {
       photos = <Photos>[];

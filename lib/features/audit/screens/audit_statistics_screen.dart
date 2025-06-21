@@ -8,12 +8,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AuditStatisticsScreen extends StatefulWidget {
   final String zoneId;
-  final int year;
 
   const AuditStatisticsScreen({
     super.key,
     required this.zoneId,
-    required this.year,
   });
 
   @override
@@ -44,8 +42,8 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
 
       const String baseUrl = 'http://localhost:8081';
       final url = widget.zoneId == 'all' 
-          ? '$baseUrl/audit-sheets/statistics?year=${widget.year}'
-          : '$baseUrl/audit-sheets/zone/${widget.zoneId}/statistics?year=${widget.year}';
+          ? '$baseUrl/audit-sheets/statistics'
+          : '$baseUrl/audit-sheets/zone/${widget.zoneId}/statistics';
       print('Fetching statistics from: $url'); // Debug log
 
       final response = await http.get(
@@ -94,6 +92,7 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
     // Initialize all months with empty data
     for (var month in _allMonths) {
       monthMap[month] = MonthlyStatistics(
+        year: DateTime.now().year,
         month: _allMonths.indexOf(month) + 1,
         monthName: month,
         totalSubmissions: 0,
@@ -107,9 +106,9 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
 
     // Fill in actual data
     if (_statistics != null) {
-      print('Filling in actual data for months: ${_statistics!.monthlyStats.map((m) => m.month).toList()}'); // Debug log
+      print('Filling in actual data for months: ${_statistics!.monthlyStats.map((m) => m.monthName).toList()}'); // Debug log
       for (var monthData in _statistics!.monthlyStats) {
-        print('Processing month: ${monthData.month} with score: ${monthData.averagePercentage}'); // Debug log
+        print('Processing month: ${monthData.monthName} with score: ${monthData.averagePercentage}'); // Debug log
         monthMap[monthData.monthName] = monthData;
       }
     }
@@ -140,12 +139,8 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
                         children: [
                           _buildSummaryCard(),
                           const SizedBox(height: 24),
-                          _buildMonthlyChart(),
+                          _buildSubmissionsBarChart(),
                           const SizedBox(height: 24),
-                          // _buildScoreDistributionChart(),
-                          // const SizedBox(height: 24),
-                          // _buildSubmissionsBarChart(),
-                          // const SizedBox(height: 24),
                           _buildMonthlyDetails(),
                         ],
                       ),
@@ -165,15 +160,43 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
       );
     }
 
-    // Calculate total submissions and average percentage
+    // Calculate total submissions and scores
     final totalSubmissions = _statistics!.monthlyStats.fold(0, (sum, month) => sum + month.totalSubmissions);
-    final totalPercentage = _statistics!.monthlyStats.fold(0.0, (sum, month) => sum + month.averagePercentage);
-    final averagePercentage = totalSubmissions > 0 ? totalPercentage / _statistics!.monthlyStats.where((m) => m.totalSubmissions > 0).length : 0.0;
+    final totalScore = _statistics!.monthlyStats.fold(0, (sum, month) => sum + month.totalScore);
+    final totalMaxScore = _statistics!.monthlyStats.fold(0, (sum, month) => sum + month.maxPossibleScore);
+    
+    // Calculate overall average percentage from individual submissions
+    double totalPercentage = 0.0;
+    int submissionCount = 0;
+    
+    for (var month in _statistics!.monthlyStats) {
+      for (var submission in month.submissions) {
+        totalPercentage += submission.percentage;
+        submissionCount++;
+      }
+    }
+    
+    final averagePercentage = submissionCount > 0 ? totalPercentage / submissionCount : 0.0;
 
-    // Find best performing month
-    final bestMonth = _statistics!.monthlyStats
-        .where((m) => m.totalSubmissions > 0)
-        .reduce((a, b) => a.averagePercentage > b.averagePercentage ? a : b);
+    // Find best performing month based on calculated average percentage
+    final monthsWithData = _statistics!.monthlyStats.where((m) => m.totalSubmissions > 0);
+    MonthlyStatistics? bestMonth;
+    
+    if (monthsWithData.isNotEmpty) {
+      double bestAverage = 0.0;
+      for (var month in monthsWithData) {
+        double monthAverage = 0.0;
+        for (var submission in month.submissions) {
+          monthAverage += submission.percentage;
+        }
+        monthAverage = month.submissions.isNotEmpty ? monthAverage / month.submissions.length : 0.0;
+        
+        if (monthAverage > bestAverage) {
+          bestAverage = monthAverage;
+          bestMonth = month;
+        }
+      }
+    }
 
     return Card(
       child: Padding(
@@ -205,11 +228,29 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
                 ),
                 _buildSummaryItem(
                   'Best Month',
-                  bestMonth.monthName,
+                  bestMonth?.monthName ?? 'N/A',
                   Icons.emoji_events,
                 ),
               ],
             ),
+            if (totalMaxScore > 0) ...[
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildSummaryItem(
+                    'Total Score',
+                    '$totalScore/$totalMaxScore',
+                    Icons.analytics,
+                  ),
+                  _buildSummaryItem(
+                    'Success Rate',
+                    '${((totalScore / totalMaxScore) * 100).toStringAsFixed(1)}%',
+                    Icons.trending_up,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -241,226 +282,6 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
     );
   }
 
-  Widget _buildMonthlyChart() {
-    if (_statistics == null) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(
-            child: Text('No monthly performance data available'),
-          ),
-        ),
-      );
-    }
-
-    final monthMap = _getMonthlyDataMap();
-    final monthlyData = _allMonths.map((month) => monthMap[month]!).toList();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Monthly Performance',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 300,
-              child: LineChart(
-                LineChartData(
-                  gridData: FlGridData(show: false),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 40,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            '${value.toInt()}%',
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= 0 && value.toInt() < _allMonths.length) {
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(
-                                _allMonths[value.toInt()],
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            );
-                          }
-                          return const Text('');
-                        },
-                      ),
-                    ),
-                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: monthlyData.asMap().entries.map((entry) {
-                        return FlSpot(entry.key.toDouble(), entry.value.averagePercentage);
-                      }).toList(),
-                      isCurved: true,
-                      color: AppColors.primary,
-                      barWidth: 3,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(show: true),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: AppColors.primary.withOpacity(0.1),
-                      ),
-                    ),
-                  ],
-                  minY: 0,
-                  maxY: 100,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildScoreDistributionChart() {
-    if (_statistics == null || _statistics!.monthlyStats.isEmpty) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(
-            child: Text('No score distribution data available'),
-          ),
-        ),
-      );
-    }
-
-    // Calculate score distribution
-    final scoreRanges = {
-      '0-20': 0,
-      '21-40': 0,
-      '41-60': 0,
-      '61-80': 0,
-      '81-100': 0,
-    };
-
-    for (var month in _statistics!.monthlyStats) {
-      for (var submission in month.submissions) {
-        if (submission.percentage <= 20) {
-          scoreRanges['0-20'] = scoreRanges['0-20']! + 1;
-        } else if (submission.percentage <= 40) {
-          scoreRanges['21-40'] = scoreRanges['21-40']! + 1;
-        } else if (submission.percentage <= 60) {
-          scoreRanges['41-60'] = scoreRanges['41-60']! + 1;
-        } else if (submission.percentage <= 80) {
-          scoreRanges['61-80'] = scoreRanges['61-80']! + 1;
-        } else {
-          scoreRanges['81-100'] = scoreRanges['81-100']! + 1;
-        }
-      }
-    }
-
-    // Check if there's any data to display
-    if (scoreRanges.values.every((value) => value == 0)) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(
-            child: Text('No score distribution data available'),
-          ),
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Score Distribution',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 300,
-              child: PieChart(
-                PieChartData(
-                  sections: scoreRanges.entries.map((entry) {
-                    final color = _getColorForScoreRange(entry.key);
-                    return PieChartSectionData(
-                      value: entry.value.toDouble(),
-                      title: '${entry.value}',
-                      color: color,
-                      radius: 100,
-                      titleStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    );
-                  }).toList(),
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 40,
-                  startDegreeOffset: -90,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 8,
-              children: scoreRanges.entries.map((entry) {
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 16,
-                      height: 16,
-                      color: _getColorForScoreRange(entry.key),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${entry.key}: ${entry.value}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSubmissionsBarChart() {
     if (_statistics == null) {
       return const Card(
@@ -473,9 +294,27 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
       );
     }
 
-    final monthMap = _getMonthlyDataMap();
-    final monthlyData = _allMonths.map((month) => monthMap[month]!).toList();
-    final maxSubmissions = monthlyData
+    // Only show months that have data
+    final monthsWithData = _statistics!.monthlyStats.where((month) => month.totalSubmissions > 0).toList();
+    
+    if (monthsWithData.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(
+            child: Text('No audit submissions found for this period'),
+          ),
+        ),
+      );
+    }
+
+    // Sort months by year and month
+    monthsWithData.sort((a, b) {
+      if (a.year != b.year) return a.year.compareTo(b.year);
+      return a.month.compareTo(b.month);
+    });
+
+    final maxSubmissions = monthsWithData
         .map((m) => m.totalSubmissions.toDouble())
         .reduce((a, b) => a > b ? a : b);
 
@@ -505,8 +344,18 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
                     touchTooltipData: BarTouchTooltipData(
                       tooltipBgColor: Colors.blueGrey,
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final month = monthsWithData[group.x];
+                        // Calculate average percentage for tooltip
+                        double monthAveragePercentage = 0.0;
+                        if (month.submissions.isNotEmpty) {
+                          double totalPercentage = 0.0;
+                          for (var submission in month.submissions) {
+                            totalPercentage += submission.percentage;
+                          }
+                          monthAveragePercentage = totalPercentage / month.submissions.length;
+                        }
                         return BarTooltipItem(
-                          '${rod.toY.round()} submissions',
+                          '${month.monthName} ${month.year}\n${rod.toY.round()} submissions\nAvg: ${monthAveragePercentage.toStringAsFixed(1)}%',
                           const TextStyle(color: Colors.white),
                         );
                       },
@@ -518,15 +367,17 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= 0 && value.toInt() < _allMonths.length) {
+                          if (value.toInt() >= 0 && value.toInt() < monthsWithData.length) {
+                            final month = monthsWithData[value.toInt()];
                             return Padding(
                               padding: const EdgeInsets.only(top: 8.0),
                               child: Text(
-                                _allMonths[value.toInt()],
+                                '${month.monthName}\n${month.year}',
                                 style: const TextStyle(
                                   color: AppColors.textSecondary,
-                                  fontSize: 12,
+                                  fontSize: 10,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                             );
                           }
@@ -564,7 +415,7 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
                       );
                     },
                   ),
-                  barGroups: monthlyData.asMap().entries.map((entry) {
+                  barGroups: monthsWithData.asMap().entries.map((entry) {
                     return BarChartGroupData(
                       x: entry.key,
                       barRods: [
@@ -600,8 +451,19 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
       );
     }
 
-    final monthMap = _getMonthlyDataMap();
-    final monthlyData = _allMonths.map((month) => monthMap[month]!).toList();
+    // Only show months that have data
+    final monthsWithData = _statistics!.monthlyStats.where((month) => month.totalSubmissions > 0).toList();
+
+    if (monthsWithData.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(
+            child: Text('No audit submissions found for this period'),
+          ),
+        ),
+      );
+    }
 
     return Card(
       child: Padding(
@@ -618,7 +480,7 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            ...monthlyData.map((month) => _buildMonthCard(month)),
+            ...monthsWithData.map((month) => _buildMonthCard(month)),
           ],
         ),
       ),
@@ -626,18 +488,28 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
   }
 
   Widget _buildMonthCard(MonthlyStatistics month) {
+    // Calculate average percentage from individual submissions
+    double monthAveragePercentage = 0.0;
+    if (month.submissions.isNotEmpty) {
+      double totalPercentage = 0.0;
+      for (var submission in month.submissions) {
+        totalPercentage += submission.percentage;
+      }
+      monthAveragePercentage = totalPercentage / month.submissions.length;
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         title: Text(
-          month.monthName,
+          '${month.monthName} ${month.year}',
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
           ),
         ),
         subtitle: Text(
-          'Average Score: ${month.averagePercentage.toStringAsFixed(1)}%',
+          'Average Score: ${monthAveragePercentage.toStringAsFixed(1)}% (${month.totalSubmissions} submissions)',
           style: const TextStyle(
             color: AppColors.textSecondary,
           ),
@@ -648,35 +520,26 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Submissions: ${month.totalSubmissions}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatItem('Total Score', '${month.totalScore}/${month.maxPossibleScore}'),
+                    ),
+                    Expanded(
+                      child: _buildStatItem('Average Score', '${month.averageScore.toStringAsFixed(1)}'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Submissions:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
-                ...month.submissions.map((submission) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.person, size: 16, color: AppColors.textSecondary),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Submitted: ${submission.submittedAt.toString().split('.')[0]}',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        'Score: ${submission.percentage.toStringAsFixed(1)}%',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
+                ...month.submissions.map((submission) => _buildSubmissionItem(submission)),
               ],
             ),
           ),
@@ -685,20 +548,98 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
     );
   }
 
-  Color _getColorForScoreRange(String range) {
-    switch (range) {
-      case '0-20':
-        return Colors.red;
-      case '21-40':
-        return Colors.orange;
-      case '41-60':
-        return Colors.yellow;
-      case '61-80':
-        return Colors.lightGreen;
-      case '81-100':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubmissionItem(Submission submission) {
+    final date = submission.submittedAt.toLocal();
+    final formattedDate = '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.textSecondary.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.person, size: 16, color: AppColors.textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  submission.submittedByName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                submission.submissionId.substring(0, 8),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textSecondary,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.schedule, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 8),
+              Text(
+                'Submitted: $formattedDate',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.score, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 8),
+              Text(
+                'Score: ${submission.totalScore} (${submission.percentage.toStringAsFixed(1)}%)',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 } 

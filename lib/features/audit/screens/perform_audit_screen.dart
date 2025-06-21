@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,10 +8,12 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../services/zone_service.dart';
 import '../../../theme/colors.dart';
 import '../models/audit_sheet.dart';
 import '../models/audit_submission.dart';
 import '../../../providers/audit_sheet_provider.dart';
+import '../../../models/zone.dart';
 
 
 class PerformAuditScreen extends ConsumerStatefulWidget {
@@ -30,6 +34,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
   final List<AuditQuestion> _questions = [];
   final Map<String, String> _remarks = {};
   final Map<String, List<Photos>> _photos = {};
+  final ZoneService _zoneService = ZoneService();
   bool _isAuditComplete = false;
   double _totalScore = 0;
   double _percentageScore = 0;
@@ -40,11 +45,16 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
   bool _canPerformAudit = true;
   String? _userRole;
   List<AuditSubmission> _allSubmissions = [];
+  DateTime _selectedDate = DateTime.now();
+  Zone? _selectedZone;
+  List<Zone> _zones = [];
+  bool _isLoadingZones = true;
 
   @override
   void initState() {
     super.initState();
     _initializeQuestions();
+    _loadZones();
   }
 
   Future<void> _initializeQuestions() async {
@@ -62,6 +72,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       _questions.addAll(widget.sheet.questions.map((q) => AuditQuestion(
         questionId: '${q.questionId}_${DateTime.now().millisecondsSinceEpoch}_${_questions.length}',
         question: q.question,
+        score: null,
       )));
 
       // Check for existing submissions
@@ -87,21 +98,13 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
               _canPerformAudit = false;
               _isAuditComplete = true;
             } else if (_userRole.toString().toLowerCase() == 'zone-leader') {
-              // Check if current user has already submitted
-              if (_currentUserId != null) {
-                // Find user's submission
-                final userSubmission = submissions.firstWhere(
-                  (submission) => submission.submittedBy == _currentUserId,
-                );
-                
-                if (userSubmission != null) {
-                  _canPerformAudit = false;
-                  _isAuditComplete = true;
-                  _latestSubmission = userSubmission;
-                } else {
-                  _canPerformAudit = true;
-                  _isAuditComplete = false;
-                }
+              // Zone-leaders can perform multiple audits
+              _canPerformAudit = true;
+              _isAuditComplete = false;
+              
+              // If there are submissions, show the latest one for reference
+              if (submissions.isNotEmpty) {
+                _latestSubmission = submissions.first;
               }
             } else {
               _canPerformAudit = false;
@@ -118,7 +121,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
               );
 
               if(response.score != null)
-                question.score = response.score!.toDouble();
+                question.score = response.score;
               
               if (response.remarks != null && response.remarks!.isNotEmpty) {
                 _remarks[question.questionId] = response.remarks!;
@@ -169,6 +172,41 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
     }
   }
 
+  Future<void> _loadZones() async {
+    try {
+      setState(() {
+        _isLoadingZones = true;
+      });
+
+      final storage = const FlutterSecureStorage();
+      final orgId = await storage.read(key: 'orgId') ?? '';
+      
+      if (orgId.isEmpty) {
+        throw Exception('Organization ID not found');
+      }
+
+      final zones = await _zoneService.getZonesByOrgId(orgId);
+      
+      setState(() {
+        _zones = zones;
+        _isLoadingZones = false;
+      });
+    } catch (e) {
+      print('Error loading zones: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading zones: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      setState(() {
+        _isLoadingZones = false;
+      });
+    }
+  }
+
   Future<void> _addPhoto(String questionId) async {
     try {
       final ImagePicker picker = ImagePicker();
@@ -203,16 +241,12 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
     }
   }
 
-  void _updateScore(String questionId, double score) {
+  void _updateScore(String questionId, String? score) {
     setState(() {
       final questionIndex = _questions.indexWhere((q) => q.questionId == questionId);
       if (questionIndex != -1) {
-        // Update the score for the question
         _questions[questionIndex].score = score;
-        
-        // Recalculate total score
         _calculateTotalScore();
-        
         // Print debug information
         print('Updated score for question ${questionId}: $score');
         print('All question scores:');
@@ -232,19 +266,38 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
   }
 
   void _calculateTotalScore() {
-    // Calculate total score by summing up all question scores
-    _totalScore = _questions.fold(0.0, (sum, question) => sum + question.score);
+    // Get only the questions that have actual scores (not null and not NA)
+    final applicableQuestions = _questions.where((q) => q.score != null && q.score != 'NA').toList();
     
-    // Calculate maximum possible score
-    final maxPossibleScore = _questions.length * widget.sheet.maxScore;
+    // T = Total number of applicable questions (excluding NA and null)
+    final totalApplicableQuestions = applicableQuestions.length;
     
-    // Calculate percentage based on actual maximum score
-    _percentageScore = (_totalScore / maxPossibleScore) * 100;
+    // Max Score per Question = 3
+    final maxScorePerQuestion = widget.sheet.maxScore;
+    
+    // Total Possible Score = (Number of applicable questions) × maxScore
+    final totalPossibleScore = totalApplicableQuestions * maxScorePerQuestion;
+    
+    // Actual Score = Sum of all applicable question scores
+    _totalScore = applicableQuestions.fold(
+      0.0,
+      (sum, question) {
+        return sum + int.parse(question.score.toString());
+      },
+    );
+    
+    // Audit Score % = (Actual Score / Total Possible Score) × 100
+    _percentageScore = totalPossibleScore > 0 ? (_totalScore / totalPossibleScore) * 100 : 0;
     
     // Print debug information
-    print('Final total score: $_totalScore');
-    print('Maximum possible score: $maxPossibleScore');
-    print('Percentage: $_percentageScore%');
+    print('Total Questions: ${_questions.length}');
+    print('NA Questions: ${_questions.where((q) => q.score == 'NA').length}');
+    print('Unanswered Questions: ${_questions.where((q) => q.score == null).length}');
+    print('Applicable Questions: $totalApplicableQuestions');
+    print('Max Score per Question: $maxScorePerQuestion');
+    print('Total Possible Score: $totalPossibleScore');
+    print('Actual Score: $_totalScore');
+    print('Audit Score %: $_percentageScore%');
   }
 
   String _getBase64Image(File imageFile) {
@@ -253,8 +306,32 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
     return 'data:image/jpeg;base64,$base64Image';
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
   Future<void> _completeAudit() async {
     try {
+      if (_selectedZone == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a zone'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       setState(() {
         _isAuditComplete = true;
         _calculateTotalScore();
@@ -263,19 +340,23 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       // Get user ID from secure storage
       const storage = FlutterSecureStorage();
       final userId = await storage.read(key: 'userId') ?? '';
-      
+      final userZone = await storage.read(key: 'zoneId') ?? '';
+
       if (userId.isEmpty) {
         throw Exception('User ID not found. Please login again.');
       }
 
+      // Calculate NA and applicable questions
+      final naQuestions = _questions.where((q) => q.score == 'NA').length;
+      final applicableQuestions = _questions.where((q) => q.score != null && q.score != 'NA').length;
+
       // Prepare responses
       final responses = _questions.map((question) {
-        final questionPhotos = _photos[question.questionId] ?? [];
         return {
           'questionId': question.questionId.split('_')[0],
-          'score': question.score.toInt(),
+          'score': question.score == null ? 'NA' : question.score,
           'remarks': _remarks[question.questionId] ?? '',
-          'photos': questionPhotos.map((photoPath) {
+          'photos': (_photos[question.questionId] ?? []).map((photoPath) {
             final file = File(photoPath.url.toString());
             return {
               'file': _getBase64Image(file),
@@ -288,6 +369,13 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       // Prepare request body
       final requestBody = {
         'submittedBy': userId,
+        'userZone': userZone,
+        'naQuestions': naQuestions,
+        'applicableQuestions': applicableQuestions,
+        'totalScore': _totalScore,
+        'auditScorePercentage': _percentageScore,
+        'auditDate': _selectedDate.toIso8601String(),
+        'auditZone': _selectedZone!.id,
         'responses': responses,
       };
 
@@ -318,7 +406,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
             const SnackBar(content: Text('Audit submitted successfully!')),
           );
           // Navigate to statistics screen
-          context.push('/audit-statistics/${widget.sheet.zoneId}/${DateTime.now().year}');
+          context.push('/audit-statistics/${_selectedZone!.id}');
         }
       } else {
         // Show error message from the server
@@ -401,57 +489,42 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
                 _buildSubmissionInfo(),
                 const SizedBox(height: 24),
               ],
-              if (!_canPerformAudit && _hasSubmissions && _userRole != 'zone-admin') ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning, color: Colors.red),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'You have already submitted an audit for this sheet. You cannot submit another one.',
-                          style: TextStyle(
-                            color: Colors.red[700],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
+              // if (!_canPerformAudit && _hasSubmissions && _userRole != 'zone-admin') ...[
+              //   Container(
+              //     padding: const EdgeInsets.all(16),
+              //     decoration: BoxDecoration(
+              //       color: Colors.red.withOpacity(0.1),
+              //       borderRadius: BorderRadius.circular(12),
+              //       border: Border.all(color: Colors.red),
+              //     ),
+              //     child: Row(
+              //       children: [
+              //         const Icon(Icons.warning, color: Colors.red),
+              //         const SizedBox(width: 12),
+              //         Expanded(
+              //           child: Text(
+              //             'You have already submitted an audit for this sheet. You cannot submit another one.',
+              //             style: TextStyle(
+              //               color: Colors.red[700],
+              //               fontSize: 14,
+              //             ),
+              //           ),
+              //         ),
+              //       ],
+              //     ),
+              //   ),
+              //   const SizedBox(height: 24),
+              // ],
               if (_userRole != 'zone-admin') ...[
+                if (_canPerformAudit) ...[
+                  _buildAuditInfoCard(),
+                  const SizedBox(height: 24),
+                ],
                 ..._questions.map((question) => _buildQuestionCard(question)).toList(),
                 const SizedBox(height: 24),
                 if (_canPerformAudit) ...[
                   _buildScoreCard(),
                   const SizedBox(height: 24),
-                  // ElevatedButton(
-                  //   onPressed: _isAuditComplete ? _completeAudit : null,
-                  //   style: ElevatedButton.styleFrom(
-                  //     backgroundColor: AppColors.primary,
-                  //     minimumSize: const Size(double.infinity, 56),
-                  //     shape: RoundedRectangleBorder(
-                  //       borderRadius: BorderRadius.circular(12),
-                  //     ),
-                  //     elevation: 0,
-                  //   ),
-                  //   child: const Text(
-                  //     'Submit Audit',
-                  //     style: TextStyle(
-                  //       color: Colors.white,
-                  //       fontSize: 16,
-                  //       fontWeight: FontWeight.w600,
-                  //     ),
-                  //   ),
-                  // ),
                 ],
               ],
             ],
@@ -663,24 +736,29 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<double>(
-                  value: question.score,
+                child: DropdownButtonFormField<String>(
+                  value: (question.score == null || question.score == "") ? null : question.score,
                   decoration: const InputDecoration(
                     labelText: 'Score',
                     border: OutlineInputBorder(),
                   ),
-                  items: List.generate(widget.sheet.maxScore + 1, (index) => index.toDouble()).map((score) {
-                    return DropdownMenuItem(
-                      value: score,
-                      child: Text(score.toString()),
-                    );
-                  }).toList(),
+                  hint: const Text('Select Score'),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: 'NA',
+                      child: Text('NA'),
+                    ),
+                    ...List.generate(widget.sheet.maxScore + 1, (index) => index.toString()).map((score) {
+                      return DropdownMenuItem<String>(
+                        value: score,
+                        child: Text(score),
+                      );
+                    }).toList(),
+                  ],
                   onChanged: (!_canPerformAudit)
                       ? null
                       : (value) {
-                          if (value != null) {
-                            _updateScore(question.questionId, value);
-                          }
+                          _updateScore(question.questionId, value);
                         },
                 ),
               ),
@@ -815,6 +893,86 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
   }
 
   Widget _buildScoreCard() {
+    // Get only the questions that have actual scores (not null and not NA)
+    final applicableQuestions = _questions.where((q) => q.score != null && q.score != 'NA').toList();
+    final totalApplicableQuestions = applicableQuestions.length;
+    final naQuestions = _questions.where((q) => q.score == 'NA').length;
+    final unansweredQuestions = _questions.where((q) => q.score == null).length;
+    final maxScorePerQuestion = widget.sheet.maxScore;
+    final totalPossibleScore = totalApplicableQuestions * maxScorePerQuestion;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Audit Score: ${_percentageScore.toStringAsFixed(2)}%',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Actual Score: ${_totalScore.toStringAsFixed(1)}/$totalPossibleScore',
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Applicable Questions: $totalApplicableQuestions/${_questions.length}',
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'NA Questions: $naQuestions',
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (unansweredQuestions > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Unanswered Questions: $unansweredQuestions',
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.orange,
+              ),
+            ),
+          ],
+          // const SizedBox(height: 4),
+          // Text(
+          //   'Max Score per Question: $maxScorePerQuestion',
+          //   style: const TextStyle(
+          //         fontSize: 14,
+          //         color: AppColors.textSecondary,
+          //       ),
+          // ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuditInfoCard() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -831,21 +989,57 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Total Score: ${_totalScore.toStringAsFixed(1)}/${_questions.length * widget.sheet.maxScore} (${_percentageScore.toStringAsFixed(1)}%)',
-            style: const TextStyle(
+          const Text(
+            'Audit Information',
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Answer each question and provide evidence',
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectDate(context),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Audit Date',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(
+                      '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _isLoadingZones
+                    ? const Center(child: CircularProgressIndicator())
+                    : DropdownButtonFormField<Zone>(
+                        value: _selectedZone,
+                        decoration: const InputDecoration(
+                          labelText: 'Zone',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _zones.map((Zone zone) {
+                          return DropdownMenuItem<Zone>(
+                            value: zone,
+                            child: Text(zone.zoneName),
+                          );
+                        }).toList(),
+                        onChanged: (Zone? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _selectedZone = newValue;
+                            });
+                          }
+                        },
+                      ),
+              ),
+            ],
           ),
         ],
       ),

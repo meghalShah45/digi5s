@@ -21,7 +21,6 @@ class AuditEditorScreen extends ConsumerStatefulWidget {
 
 class _AuditEditorScreenState extends ConsumerState<AuditEditorScreen> {
   final List<AuditQuestion> savedQuestions = [];
-  String? selectedZone;
   DateTime? selectedDate;
   String? selectedMonth;
   int? selectedYear;
@@ -45,7 +44,6 @@ class _AuditEditorScreenState extends ConsumerState<AuditEditorScreen> {
     if (widget.auditSheet != null) {
       // Initialize with existing audit sheet data
       nameController.text = widget.auditSheet!.name;
-      selectedZone = widget.auditSheet!.zoneId;
       selectedDate = widget.auditSheet!.createdAt;
       selectedMonth = widget.auditSheet!.month;
       selectedYear = widget.auditSheet!.createdAt.year;
@@ -67,12 +65,6 @@ class _AuditEditorScreenState extends ConsumerState<AuditEditorScreen> {
   }
 
   Future<void> _saveAuditSheet() async {
-    if (selectedZone == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a zone')),
-      );
-      return;
-    }
 
     if (nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -125,7 +117,6 @@ class _AuditEditorScreenState extends ConsumerState<AuditEditorScreen> {
       final auditSheet = AuditSheet(
         id: widget.auditSheet?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         name: nameController.text.trim(),
-        zoneId: selectedZone!,
         orgId: orgId,
         createdAt: DateTime(selectedYear!, monthIndex + 1, 1),
         questions: savedQuestions,
@@ -139,7 +130,6 @@ class _AuditEditorScreenState extends ConsumerState<AuditEditorScreen> {
         await ref.read(createAuditSheetProvider(
           CreateAuditSheetParams(
             auditSheet: auditSheet,
-            zoneId: selectedZone!,
           ),
         ).future);
       } else {
@@ -236,41 +226,6 @@ class _AuditEditorScreenState extends ConsumerState<AuditEditorScreen> {
                         filled: true,
                         fillColor: AppColors.background,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      decoration: InputDecoration(
-                        labelText: 'Zone Name',
-                        labelStyle: TextStyle(color: AppColors.textSecondary),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.border),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.border),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primary),
-                        ),
-                        filled: true,
-                        fillColor: AppColors.background,
-                      ),
-                      value: selectedZone,
-                      items: ref.watch(zoneListProvider).when(
-                        data: (zones) => zones?.map((zone) => DropdownMenuItem<String>(
-                          value: zone.id,
-                          child: Text(zone.name),
-                        )).toList() ?? [],
-                        loading: () => [],
-                        error: (_, __) => [],
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedZone = value;
-                        });
-                      },
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -426,14 +381,6 @@ class _AuditEditorScreenState extends ConsumerState<AuditEditorScreen> {
                         },
                         month: selectedMonth!,
                         sheetName: nameController.text.trim(),
-                        zoneName: ref.watch(zoneListProvider).when(
-                          data: (zones) => zones?.firstWhere(
-                            (zone) => zone.id == selectedZone,
-                          )?.name,
-                          loading: () => null,
-                          error: (_, __) => null,
-                        ),
-                        zoneId: selectedZone,
                         isEditing: widget.auditSheet != null,
                       ),
                     ),

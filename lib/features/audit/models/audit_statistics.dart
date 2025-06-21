@@ -1,11 +1,9 @@
 class AuditStatistics {
   final String zoneId;
-  final int year;
   final List<MonthlyStatistics> monthlyStats;
 
   AuditStatistics({
     required this.zoneId,
-    required this.year,
     required this.monthlyStats,
   });
 
@@ -14,7 +12,6 @@ class AuditStatistics {
       final data = json['data'] as Map<String, dynamic>;
       return AuditStatistics(
         zoneId: data['zoneId'] as String? ?? '',
-        year: data['year'] as int? ?? DateTime.now().year,
         monthlyStats: (data['statistics'] as List?)
                 ?.map((e) => MonthlyStatistics.fromJson(e as Map<String, dynamic>))
                 .toList() ??
@@ -30,6 +27,7 @@ class AuditStatistics {
 }
 
 class MonthlyStatistics {
+  final int year;
   final int month;
   final String monthName;
   final int totalSubmissions;
@@ -40,6 +38,7 @@ class MonthlyStatistics {
   final List<Submission> submissions;
 
   MonthlyStatistics({
+    required this.year,
     required this.month,
     required this.monthName,
     required this.totalSubmissions,
@@ -53,6 +52,7 @@ class MonthlyStatistics {
   factory MonthlyStatistics.fromJson(Map<String, dynamic> json) {
     try {
       return MonthlyStatistics(
+        year: json['year'] as int? ?? DateTime.now().year,
         month: json['month'] as int? ?? 0,
         monthName: json['monthName'] as String? ?? 'Unknown',
         totalSubmissions: json['totalSubmissions'] as int? ?? 0,
@@ -79,12 +79,18 @@ class Submission {
   final DateTime submittedAt;
   final int totalScore;
   final double percentage;
+  final String auditSheetId;
+  final String submittedBy;
+  final String submittedByName;
 
   Submission({
     required this.submissionId,
     required this.submittedAt,
     required this.totalScore,
     required this.percentage,
+    required this.auditSheetId,
+    required this.submittedBy,
+    required this.submittedByName,
   });
 
   factory Submission.fromJson(Map<String, dynamic> json) {
@@ -108,6 +114,9 @@ class Submission {
             : DateTime.now(),
         totalScore: json['totalScore'] as int? ?? 0,
         percentage: parsePercentage(json['percentage']),
+        auditSheetId: json['auditSheetId'] as String? ?? '',
+        submittedBy: json['submittedBy'] as String? ?? '',
+        submittedByName: json['submittedByName'] as String? ?? '',
       );
     } catch (e, stackTrace) {
       print('Error parsing Submission: $e');

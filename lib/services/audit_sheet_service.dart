@@ -8,13 +8,12 @@ import '../features/audit/models/audit_submission.dart';
 class AuditSheetService {
   static const String baseUrl = 'http://localhost:8081';
 
-  Future<AuditSheet> createAuditSheet(AuditSheet auditSheet, String zoneId) async {
+  Future<AuditSheet> createAuditSheet(AuditSheet auditSheet) async {
     try {
       final storage = const FlutterSecureStorage();
       final userId = await storage.read(key: 'userId') ?? '';
       print('Creating audit sheet with data: ${jsonEncode({
         'name': auditSheet.name,
-        'zoneId': zoneId,
         'orgId': auditSheet.orgId,
         'month': auditSheet.month,
         'maxScore': auditSheet.maxScore,
@@ -34,7 +33,6 @@ class AuditSheetService {
         },
         body: jsonEncode({
           'name': auditSheet.name,
-          'zoneId': zoneId,
           'orgId': auditSheet.orgId,
           'month': auditSheet.month,
           'maxScore': auditSheet.maxScore,
@@ -62,7 +60,7 @@ class AuditSheetService {
         final data = (json['data'] as List).first;
         
         // Validate required fields
-        if (data['name'] == null || data['zoneId'] == null || data['orgId'] == null || data['createdAt'] == null) {
+        if (data['name'] == null || data['orgId'] == null || data['createdAt'] == null) {
           throw Exception('Invalid response: Missing required fields');
         }
 
@@ -83,7 +81,6 @@ class AuditSheetService {
         return AuditSheet(
           id: data['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
           name: data['name'],
-          zoneId: data['zoneId'],
           orgId: data['orgId'],
           createdAt: DateTime.parse(data['createdAt']),
           questions: questions,
@@ -111,12 +108,11 @@ class AuditSheetService {
     }
   }
 
-  Future<List<AuditSheet>> getAuditSheets(String orgId, {String? zoneId}) async {
+  Future<List<AuditSheet>> getAuditSheets(String orgId) async {
     try {
-      print('Fetching audit sheets for orgId: $orgId${zoneId != null ? ', zoneId: $zoneId' : ''}');
+      print('Fetching audit sheets for orgId: $orgId');
       final queryParams = {
-        'orgId': orgId,
-        if (zoneId != null) 'zoneId': zoneId,
+        'orgId': orgId
       };
       final uri = Uri.parse('$baseUrl/audit-sheets').replace(queryParameters: queryParams);
       
@@ -148,7 +144,7 @@ class AuditSheetService {
           print('Processing audit sheet: $item');
           
           // Validate required fields
-          if (item['name'] == null || item['zoneId'] == null || item['orgId'] == null || item['createdAt'] == null) {
+          if (item['name'] == null || item['orgId'] == null || item['createdAt'] == null) {
             print('Missing required fields in audit sheet: $item');
             throw Exception('Invalid response: Missing required fields');
           }
@@ -194,7 +190,6 @@ class AuditSheetService {
           final auditSheet = AuditSheet(
             id: item['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
             name: item['name'],
-            zoneId: item['zoneId'],
             orgId: item['orgId'],
             createdAt: DateTime.parse(item['createdAt']),
             questions: questions,
@@ -247,7 +242,6 @@ class AuditSheetService {
       final userId = await storage.read(key: 'userId') ?? '';
       print('Updating audit sheet with data: ${jsonEncode({
         'name': auditSheet.name,
-        'zoneId': auditSheet.zoneId,
         'orgId': auditSheet.orgId,
         'month': auditSheet.month,
         'maxScore': auditSheet.maxScore,
@@ -267,7 +261,6 @@ class AuditSheetService {
         },
         body: jsonEncode({
           'name': auditSheet.name,
-          'zoneId': auditSheet.zoneId,
           'orgId': auditSheet.orgId,
           'month': auditSheet.month,
           'maxScore': auditSheet.maxScore,
@@ -295,7 +288,7 @@ class AuditSheetService {
         final data = (json['data'] as List).first;
         
         // Validate required fields
-        if (data['name'] == null || data['zoneId'] == null || data['orgId'] == null || data['createdAt'] == null) {
+        if (data['name'] == null || data['orgId'] == null || data['createdAt'] == null) {
           throw Exception('Invalid response: Missing required fields');
         }
 
@@ -316,7 +309,6 @@ class AuditSheetService {
         return AuditSheet(
           id: data['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
           name: data['name'],
-          zoneId: data['zoneId'],
           orgId: data['orgId'],
           createdAt: DateTime.parse(data['createdAt']),
           questions: questions,

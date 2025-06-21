@@ -85,13 +85,6 @@ class _AddQuestionsPageState extends State<AddQuestionsPage> {
       return;
     }
 
-    if (widget.zoneId == null || widget.zoneId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Zone ID is required')),
-      );
-      return;
-    }
-
     final storage = const FlutterSecureStorage();
     final orgId = await storage.read(key: 'orgId');
     
@@ -123,7 +116,6 @@ class _AddQuestionsPageState extends State<AddQuestionsPage> {
     final auditSheet = AuditSheet(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: widget.sheetName,
-      zoneId: widget.zoneId!,
       orgId: orgId,
       createdAt: DateTime.now(),
       questions: questions,

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../features/audit/data/default_audit_questions.dart';
 import '../../../features/audit/models/audit_sheet.dart';
 import '../../../theme/colors.dart';
 import '../../features/audit/models/audit_submission.dart';
@@ -10,8 +8,8 @@ import '../../providers/audit_sheet_provider.dart';
 import '../../providers/zone_provider.dart';
 import 'widgets/create_audit_sheet.dart';
 import 'widgets/audit_editor_screen.dart';
-import 'widgets/add_questions_page.dart';
 import '../../../features/audit/screens/perform_audit_screen.dart';
+import 'audit_statistics_by_zone_screen.dart';
 
 class ManageAuditScreen extends ConsumerStatefulWidget {
   const ManageAuditScreen({Key? key}) : super(key: key);
@@ -117,7 +115,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
             ),
           );
           if (newAuditSheet != null) {
-            ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
+            ref.refresh(auditSheetsProvider((orgId: orgId!)));
           }
         },
         backgroundColor: AppColors.primary,
@@ -161,32 +159,57 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              Consumer(
-                builder: (context, ref, child) {
-                  final auditSheetsAsync = ref.watch(auditSheetsProvider((orgId: orgId ?? '', zoneId: null)));
-                  return auditSheetsAsync.when(
-                    data: (sheets) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${sheets.length}',
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
+              Row(
+                children: [
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final auditSheetsAsync = ref.watch(auditSheetsProvider((orgId: orgId ?? '')));
+                      return auditSheetsAsync.when(
+                        data: (sheets) => Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${sheets.length}',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
+                        loading: () => const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(),
+                        ),
+                        error: (_, __) => const Text('0'),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AuditStatisticsByZoneScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.analytics, size: 18),
+                    label: const Text('Statistics'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    loading: () => const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(),
-                    ),
-                    error: (_, __) => const Text('0'),
-                  );
-                },
+                  ),
+                ],
               ),
             ],
           ),
@@ -212,7 +235,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
 
     return Consumer(
       builder: (context, ref, child) {
-        final auditSheetsAsync = ref.watch(auditSheetsProvider((orgId: orgId!, zoneId: null)));
+        final auditSheetsAsync = ref.watch(auditSheetsProvider((orgId: orgId!)));
         
         return auditSheetsAsync.when(
           data: (auditSheets) {
@@ -307,7 +330,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
+                      ref.refresh(auditSheetsProvider((orgId: orgId!)));
                     },
                     child: const Text('Retry'),
                   ),
@@ -353,7 +376,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
 
       _showAuditEditor(sheet);
       if (orgId != null) {
-        ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
+        ref.refresh(auditSheetsProvider((orgId: orgId!)));
       }
     } catch (e) {
       if (mounted) {
@@ -376,7 +399,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
       ),
     ).then((_) {
       if (orgId != null) {
-        ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
+        ref.refresh(auditSheetsProvider((orgId: orgId!)));
       }
     });
   }
@@ -420,7 +443,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
       if (shouldDelete == true) {
         await ref.read(deleteAuditSheetProvider(sheet.id).future);
         if (orgId != null) {
-          ref.refresh(auditSheetsProvider((orgId: orgId!, zoneId: null)));
+          ref.refresh(auditSheetsProvider((orgId: orgId!)));
         }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

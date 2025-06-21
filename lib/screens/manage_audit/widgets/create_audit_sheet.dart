@@ -15,7 +15,6 @@ class CreateAuditSheetPage extends ConsumerStatefulWidget {
 }
 
 class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
-  String? selectedZone;
   DateTime? selectedDate;
   String? selectedMonth;
   int? selectedYear;
@@ -121,43 +120,6 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: 'Zone Name',
-                  labelStyle: TextStyle(color: AppColors.textSecondary),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.primary),
-                  ),
-                  filled: true,
-                  fillColor: AppColors.background,
-                ),
-                value: selectedZone,
-                items: ref.watch(zoneListProvider).when(
-                  data: (zones) => zones?.map((zone) {
-                    return DropdownMenuItem(
-                      value: zone.id,
-                      child: Text(zone.name),
-                    );
-                  }).toList() ?? [],
-                  loading: () => [],
-                  error: (_, __) => [],
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    selectedZone = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
@@ -240,12 +202,6 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
                     );
                     return;
                   }
-                  if (selectedZone == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please select a zone')),
-                    );
-                    return;
-                  }
                   if (selectedMonth == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Please select a month')),
@@ -271,19 +227,6 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
                         },
                         month: selectedMonth!,
                         sheetName: nameController.text.trim(),
-                        zoneId: selectedZone,
-                        zoneName: ref.watch(zoneListProvider).when(
-                          data: (zones) {
-                            if (zones == null) return null;
-                            final zone = zones.firstWhere(
-                              (zone) => zone.id == selectedZone,
-
-                            );
-                            return zone?.name;
-                          },
-                          loading: () => null,
-                          error: (_, __) => null,
-                        ),
                       ),
                     ),
                   );
@@ -296,7 +239,6 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
                         await ref.read(createAuditSheetProvider(
                           CreateAuditSheetParams(
                             auditSheet: result,
-                            zoneId: selectedZone!,
                           ),
                         ).future);
                         if (mounted) {
@@ -378,12 +320,6 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
   }
 
   Future<void> _saveAuditSheet() async {
-    if (selectedZone == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a zone')),
-      );
-      return;
-    }
 
     if (nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -419,7 +355,6 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
       final auditSheet = AuditSheet(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: nameController.text.trim(),
-        zoneId: selectedZone!,
         orgId: orgId,
         createdAt: DateTime.now(),
         questions: questions.map((q) => AuditQuestion(
@@ -434,7 +369,6 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
       final result = await ref.read(createAuditSheetProvider(
         CreateAuditSheetParams(
           auditSheet: auditSheet,
-          zoneId: selectedZone!,
         ),
       ).future);
 

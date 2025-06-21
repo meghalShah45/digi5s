@@ -1,7 +1,6 @@
 class AuditSheet {
   final String id;
   final String name;
-  final String zoneId;
   final String orgId;
   final String month;
   final DateTime createdAt;
@@ -13,7 +12,6 @@ class AuditSheet {
   AuditSheet({
     required this.id,
     required this.name,
-    required this.zoneId,
     required this.orgId,
     required this.createdAt,
     required this.questions,
@@ -27,7 +25,6 @@ class AuditSheet {
     return {
       'id': id,
       'name': name,
-      'zoneId': zoneId,
       'orgId': orgId,
       'month': month,
       'createdAt': createdAt.toIso8601String(),
@@ -42,7 +39,6 @@ class AuditSheet {
     return AuditSheet(
       id: json['id'] as String,
       name: json['name'] as String,
-      zoneId: json['zoneId'] as String,
       orgId: json['orgId'] as String,
       month: json['month'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
@@ -70,7 +66,6 @@ class AuditSheet {
     return AuditSheet(
       id: id ?? this.id,
       name: name ?? this.name,
-      zoneId: zoneId ?? this.zoneId,
       orgId: orgId ?? this.orgId,
       month: month ?? this.month,
       createdAt: createdAt ?? this.createdAt,
@@ -85,12 +80,12 @@ class AuditSheet {
 class AuditQuestion {
   final String question;
   final String questionId;
-  double score;
+  String? score;
 
   AuditQuestion({
     required this.question,
     required this.questionId,
-    this.score = 0.0,
+    this.score = '',
   });
 
   Map<String, dynamic> toJson() {
@@ -105,7 +100,7 @@ class AuditQuestion {
     return AuditQuestion(
       question: json['question'] as String,
       questionId: json['questionId'] as String,
-      score: (json['score'] as num?)?.toDouble() ?? 0.0,
+      score: (json['score']) ?? '',
     );
   }
 } 

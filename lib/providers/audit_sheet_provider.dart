@@ -9,21 +9,20 @@ final auditSheetServiceProvider = Provider<AuditSheetService>((ref) {
 
 class CreateAuditSheetParams {
   final AuditSheet auditSheet;
-  final String zoneId;
 
-  CreateAuditSheetParams({required this.auditSheet, required this.zoneId});
+  CreateAuditSheetParams({required this.auditSheet});
 }
 
 final createAuditSheetProvider = FutureProvider.family<AuditSheet, CreateAuditSheetParams>((ref, params) async {
   final service = ref.watch(auditSheetServiceProvider);
-  return service.createAuditSheet(params.auditSheet, params.zoneId);
+  return service.createAuditSheet(params.auditSheet);
 }); 
 
-final auditSheetsProvider = FutureProvider.family<List<AuditSheet>, ({String orgId, String? zoneId})>((ref, params) async {
+final auditSheetsProvider = FutureProvider.family<List<AuditSheet>, ({String orgId})>((ref, params) async {
   try {
-    print('AuditSheetsProvider: Fetching sheets for orgId: ${params.orgId}${params.zoneId != null ? ', zoneId: ${params.zoneId}' : ''}');
+    print('AuditSheetsProvider: Fetching sheets for orgId: ${params.orgId}');
     final service = ref.watch(auditSheetServiceProvider);
-    final sheets = await service.getAuditSheets(params.orgId, zoneId: params.zoneId);
+    final sheets = await service.getAuditSheets(params.orgId);
     print('AuditSheetsProvider: Successfully fetched ${sheets.length} sheets');
     return sheets;
   } catch (e, stackTrace) {
