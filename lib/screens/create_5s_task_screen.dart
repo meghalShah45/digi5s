@@ -20,6 +20,7 @@ class Create5STaskScreen extends StatefulWidget {
 class _Create5STaskScreenState extends State<Create5STaskScreen> {
   String? selectedMember;
   Zone? _selectedZone;
+  final TextEditingController _taskNameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   String? attachedPhotoPath;
   List<Map<String, dynamic>> _zoneMembers = [];
@@ -30,6 +31,13 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
   void initState() {
     super.initState();
     _loadZones();
+  }
+
+  @override
+  void dispose() {
+    _taskNameController.dispose();
+    _descController.dispose();
+    super.dispose();
   }
 
   @override
@@ -47,6 +55,18 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text('Task Name', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _taskNameController,
+              decoration: InputDecoration(
+                hintText: 'Enter task name...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: const Color(0xFFF5F5F5),
+              ),
+            ),
+            const SizedBox(height: 24),
             const Text('Select Zone', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             const SizedBox(height: 12),
             DropdownButtonFormField<Zone>(
@@ -252,7 +272,7 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
   }
 
   Future<void> _submitTask() async {
-    if (_selectedZone == null || selectedMember == null || _descController.text.isEmpty) {
+    if (_selectedZone == null || selectedMember == null || _taskNameController.text.isEmpty || _descController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please fill in all required fields'),
@@ -278,7 +298,7 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
 
       // Add text fields
       request.fields.addAll({
-        'taskName': '5S Task',
+        'taskName': _taskNameController.text,
         'description': _descController.text,
         'zoneMemberId': selectedMember!,
         'orgId': orgId,

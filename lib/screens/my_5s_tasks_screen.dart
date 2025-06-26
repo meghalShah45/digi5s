@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class Task {
   final String id;
@@ -96,9 +97,28 @@ class _My5STasksScreenState extends State<My5STasksScreen> with SingleTickerProv
 
   Future<void> _fetchTasks() async {
     try {
-      final response = await http.get(
-        Uri.parse('http://localhost:8081/tasks'),
-        headers: {'accept': 'application/json'},
+      final storage = const FlutterSecureStorage();
+      final orgId = await storage.read(key: 'orgId');
+      final userId = await storage.read(key: 'userId');
+
+      if (orgId == null || userId == null) {
+        setState(() {
+          _error = 'User data not found. Please login again.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final response = await http.post(
+        Uri.parse('http://localhost:8081/tasks/detailsByUserId'),
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'orgId': orgId,
+          'userId': userId,
+        }),
       );
 
       if (response.statusCode == 200) {
@@ -167,6 +187,9 @@ class _My5STasksScreenState extends State<My5STasksScreen> with SingleTickerProv
   }
 
   List<Task> _getTasksByStatus(String status) {
+    if (status == 'PENDING') {
+      return _tasks.where((task) => task.status == 'PENDING' || task.status == 'PENDING_APPROVAL').toList();
+    }
     return _tasks.where((task) => task.status == status).toList();
   }
 
@@ -322,16 +345,14 @@ class _My5STasksScreenState extends State<My5STasksScreen> with SingleTickerProv
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFC107),
-                      foregroundColor: Colors.black,
+                      backgroundColor: Colors.grey,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: () {
-                      _markAsCompleted(task.id);
-                    },
-                    child: const Text('Pending for Approval'),
+                    onPressed: null,
+                    child: const Text('Requested for Approval'),
                   ),
                 ),
               ],

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'features/audit/screens/audit_statistics_screen.dart';
 import 'features/manuals/screens/manage_manual_screen.dart';
+import 'features/zone_member/screens/zone_member_dashboard.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/active_organizations_screen.dart';
@@ -38,6 +39,7 @@ import 'features/red_tags/screens/create_red_tag_screen.dart';
 import 'features/red_tags/screens/view_red_tag_list_screen.dart';
 import 'features/red_tags/screens/red_tag_list_screen.dart';
 import 'features/audit/models/audit_sheet.dart';
+import 'features/zone_member/screens/my_tasks_screen.dart';
 import 'models/organization.dart';
 
 final router = GoRouter(
@@ -194,6 +196,10 @@ final router = GoRouter(
     GoRoute(
       path: '/my-5s-tasks',
       builder: (context, state) => const My5STasksScreen(),
+    ),
+    GoRoute(
+      path: '/zone-member/my-tasks',
+      builder: (context, state) => const MyTasksScreen(),
     ),
     GoRoute(
       path: '/perform-audit',

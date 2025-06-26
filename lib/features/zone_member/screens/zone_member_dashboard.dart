@@ -53,7 +53,7 @@ class ZoneMemberDashboard extends StatelessWidget {
           const Color(0xFFE3F2FD),
           const Color(0xFF1565C0),
           Icons.task_alt,
-          onTap: () => context.push('/my-tasks'),
+          onTap: () => context.push('/zone-member/my-tasks'),
         ),
         buildGridItem(
           context,
