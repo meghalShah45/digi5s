@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/colors.dart';
 import '../../providers/zone_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../models/zone_response.dart';
+import '../../services/zone_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ManageZoneScreen extends ConsumerStatefulWidget {
@@ -16,11 +18,14 @@ class ManageZoneScreen extends ConsumerStatefulWidget {
 class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  List<ZoneData> _filteredZones = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(zoneListProvider.notifier).fetchZones());
+    _loadZonesForUser();
   }
 
   @override
@@ -29,8 +34,56 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
     super.dispose();
   }
 
-  List<ZoneData> _filterZones(List<ZoneData>? zones) {
-    if (zones == null) return [];
+  Future<void> _loadZonesForUser() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final userInfo = ref.read(userProvider);
+      final storage = const FlutterSecureStorage();
+      final orgId = await storage.read(key: 'orgId');
+
+      if (orgId == null) {
+        throw Exception('Organization ID not found');
+      }
+
+      if (userInfo == null) {
+        throw Exception('User information not found');
+      }
+
+      final zoneService = ZoneService();
+      final zones = await zoneService.getZonesByUserRole(
+        orgId,
+        userInfo.role,
+        userInfo.zoneId,
+      );
+
+      // Convert Zone objects to ZoneData objects
+      final zoneDataList = zones.map((zone) => ZoneData(
+        id: zone.id,
+        name: zone.zoneName,
+        description: null, // Add description if available
+        orgId: zone.orgId,
+        createdBy: zone.createdBy,
+        createdAt: zone.createdAt,
+        updatedAt: null,
+      )).toList();
+
+      setState(() {
+        _filteredZones = _filterZones(zoneDataList);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  List<ZoneData> _filterZones(List<ZoneData> zones) {
     if (_searchQuery.isEmpty) return zones;
     
     return zones.where((zone) {
@@ -44,16 +97,17 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final zonesAsync = ref.watch(zoneListProvider);
+    final userInfo = ref.watch(userProvider);
+    final isZoneMember = userInfo?.isZoneMember ?? false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
-        title: const Text(
-          'Manage Zones',
-          style: TextStyle(
+        title: Text(
+          isZoneMember ? 'View Zone' : 'Manage Zones',
+          style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -68,7 +122,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
           onPressed: () => context.go('/'),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: isZoneMember ? null : FloatingActionButton(
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),
         onPressed: () async {
@@ -91,65 +145,69 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSearchBar(),
-              const SizedBox(height: 20),
+              if (!isZoneMember) ...[
+                _buildSearchBar(),
+                const SizedBox(height: 20),
+              ],
               Expanded(
-                child: zonesAsync.when(
-                  data: (zones) {
-                    final filteredZones = _filterZones(zones);
-                    
-                    if (filteredZones.isEmpty) {
-                      return Center(
-                        child: Text(
-                          _searchQuery.isEmpty ? 'No zones found' : 'No zones match your search',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 16,
-                          ),
-                        ),
-                      );
-                    }
-
-                    return ListView.separated(
-                      itemCount: filteredZones.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        return _buildZoneCard(context, filteredZones[index]);
-                      },
-                    );
-                  },
-                  loading: () => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  error: (error, stackTrace) => Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 48,
-                        ),
-                        const SizedBox(height: 16),
-                          Text(
-                          error.toString(),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => ref.read(zoneListProvider.notifier).fetchZones(),
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                child: _buildZonesList(),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildZonesList() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadZonesForUser,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_filteredZones.isEmpty) {
+      return Center(
+        child: Text(
+          _searchQuery.isEmpty ? 'No zones found' : 'No zones match your search',
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 16,
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: _filteredZones.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        return _buildZoneCard(context, _filteredZones[index]);
+      },
     );
   }
 
@@ -166,6 +224,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
         onChanged: (value) {
           setState(() {
             _searchQuery = value;
+            _filteredZones = _filterZones(_filteredZones);
           });
         },
         decoration: InputDecoration(
@@ -179,6 +238,9 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
   }
 
   Widget _buildZoneCard(BuildContext context, ZoneData zone) {
+    final userInfo = ref.watch(userProvider);
+    final isZoneMember = userInfo?.isZoneMember ?? false;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -202,18 +264,19 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
                   ),
                 ),
               ),
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: AppColors.primary),
-                    onPressed: () => _showEditDialog(context, zone),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: AppColors.error),
-                    onPressed: () => _showDeleteConfirmation(context, zone),
-                  ),
-                ],
-              ),
+              if (!isZoneMember)
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: AppColors.primary),
+                      onPressed: () => _showEditDialog(context, zone),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: AppColors.error),
+                      onPressed: () => _showDeleteConfirmation(context, zone),
+                    ),
+                  ],
+                ),
             ],
           ),
           if (zone.description != null) ...[
@@ -246,7 +309,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
                     side: const BorderSide(color: AppColors.primary),
                   ),
                 ),
-                child: const Text('Manage Members'),
+                child: Text(isZoneMember ? 'View Members' : 'Manage Members'),
               ),
             ],
           ),
@@ -304,6 +367,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
                       backgroundColor: Colors.green,
                     ),
                   );
+                  _loadZonesForUser(); // Refresh the list
                 }
               } catch (e) {
                 if (mounted) {
@@ -347,6 +411,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
                       backgroundColor: Colors.green,
                     ),
                   );
+                  _loadZonesForUser(); // Refresh the list
                 }
               } catch (e) {
                 if (mounted) {

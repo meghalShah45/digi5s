@@ -1,0 +1,1 @@
+ /Users/meghal/development/Sci/seicho_app/digi5s/.dart_tool/flutter_build/997bb886451c9c619251df1a1133447c/native_assets.yaml: 

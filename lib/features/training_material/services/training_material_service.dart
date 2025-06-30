@@ -30,10 +30,12 @@ class TrainingMaterialService {
     }
   }
 
-  Future<List<TrainingMaterial>> uploadTrainingMaterial({
+  Future<Map<String, dynamic>> uploadTrainingMaterial({
     required String orgId,
     required String materialType,
     required File file,
+    required String zoneId,
+    required String name,
   }) async {
     try {
       var request = http.MultipartRequest(
@@ -42,23 +44,42 @@ class TrainingMaterialService {
       );
 
       request.fields['orgId'] = orgId;
+      request.fields['zoneId'] = zoneId;
       request.fields['materialType'] = materialType;
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          file.path,
-          contentType: MediaType('image', 'png'),
-        ),
-      );
+      request.fields['name'] = name;
+      
+      // Add file if provided
+      if (file.existsSync()) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'file',
+            file.path,
+            contentType: MediaType('image', 'png'),
+          ),
+        );
+      }
 
       var response = await request.send();
       var responseData = await response.stream.bytesToString();
 
+      // Debug: Log the response
+      print('Upload Response Status: ${response.statusCode}');
+      print('Upload Response Body: $responseData');
+
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(responseData);
-        if (jsonResponse['statusCode'] == 200 && jsonResponse['data'] != null) {
-          final List<dynamic> data = jsonResponse['data'];
-          return data.map((item) => TrainingMaterial.fromJson(item)).toList();
+        if (jsonResponse['statusCode'] == 200) {
+          List<TrainingMaterial> materials = [];
+          if (jsonResponse['data'] != null) {
+            final List<dynamic> data = jsonResponse['data'];
+            materials = data.map((item) => TrainingMaterial.fromJson(item)).toList();
+          }
+          
+          return {
+            'success': true,
+            'message': jsonResponse['message'] ?? 'Training material uploaded successfully',
+            'materials': materials,
+          };
         }
         throw Exception(jsonResponse['message'] ?? 'Failed to upload training material');
       }
@@ -68,38 +89,56 @@ class TrainingMaterialService {
     }
   }
 
-  Future<List<TrainingMaterial>> updateTrainingMaterial({
+  Future<Map<String, dynamic>> updateTrainingMaterial({
     required String id,
     required String materialType,
-    required String path,
-    required bool approved,
+    required String name,
+    required String zoneId,
+    File? file,
+    bool? approved,
   }) async {
-    try {
-      final response = await http.put(
+    // try {
+      var request = http.MultipartRequest(
+        'PUT',
         Uri.parse('$baseUrl/training-material/$id'),
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'materialType': materialType,
-          'path': path,
-          'approved': approved,
-        }),
       );
-
+      request.fields['materialType'] = materialType;
+      request.fields['name'] = name;
+      request.fields['zoneId'] = zoneId;
+      if (approved != null) {
+        request.fields['approved'] = approved.toString();
+      }
+      if (file != null && file.existsSync()) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'file',
+            file.path,
+            contentType: MediaType('image', 'png'),
+          ),
+        );
+      }
+      var response = await request.send();
+      var responseData = await response.stream.bytesToString();
       if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        if (jsonResponse['statusCode'] == 200 && jsonResponse['data'] != null) {
-          final List<dynamic> data = jsonResponse['data'];
-          return data.map((item) => TrainingMaterial.fromJson(item)).toList();
+        final Map<String, dynamic> jsonResponse = json.decode(responseData);
+        if (jsonResponse['statusCode'] == 200) {
+          List<TrainingMaterial> materials = [];
+          if (jsonResponse['data'] != null) {
+            final List<dynamic> data = jsonResponse['data'];
+            materials = data.map((item) => TrainingMaterial.fromJson(item)).toList();
+          }
+          return {
+            'success': true,
+            'message': jsonResponse['message'] ?? 'Training material updated successfully',
+            'materials': materials,
+          };
         }
         throw Exception(jsonResponse['message'] ?? 'Failed to update training material');
       }
       throw Exception('Failed to update training material: ${response.statusCode}');
-    } catch (e) {
-      throw Exception('Error updating training material: $e');
-    }
+    // } catch (e) {
+    //   throw Exception('Error updating training material: $e');
+    // }
   }
 
   Future<List<TrainingMaterial>> deleteTrainingMaterial(String id) async {

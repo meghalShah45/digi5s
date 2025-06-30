@@ -142,14 +142,12 @@ class AuditSheetService {
         
         return data.map((item) {
           print('Processing audit sheet: $item');
-          
-          // Validate required fields
+
           if (item['name'] == null || item['orgId'] == null || item['createdAt'] == null) {
             print('Missing required fields in audit sheet: $item');
             throw Exception('Invalid response: Missing required fields');
           }
 
-          // Parse questions with null checks
           List<AuditQuestion> questions = [];
           if (item['questions'] != null) {
             print('Questions array: ${item['questions']}');
@@ -157,8 +155,7 @@ class AuditSheetService {
               print('Processing question: $q');
               print('Question type: ${q.runtimeType}');
               print('Question keys: ${q.keys.toList()}');
-              
-              // Handle both string and map formats
+
               String questionText;
               String questionId;
               

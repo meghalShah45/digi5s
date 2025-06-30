@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../models/zone.dart';
 import '../../../theme/colors.dart';
@@ -11,7 +10,9 @@ import '../services/news_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ManageNewsScreen extends StatefulWidget {
-  const ManageNewsScreen({Key? key}) : super(key: key);
+  final bool isReadOnly;
+  
+  const ManageNewsScreen({Key? key, this.isReadOnly = false}) : super(key: key);
 
   @override
   State<ManageNewsScreen> createState() => _ManageNewsScreenState();
@@ -70,7 +71,7 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        title: const Text('Manage News'),
+        title: Text(widget.isReadOnly ? 'View News' : 'Manage News'),
       ),
       body: SafeArea(
         child: Column(
@@ -93,7 +94,7 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: widget.isReadOnly ? null : FloatingActionButton(
         onPressed: () => _showAddNewsFlow(context),
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),
@@ -259,10 +260,11 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                               ],
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () => _showDeleteConfirmation(context, newsItem),
-                          ),
+                          if (!widget.isReadOnly)
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () => _showDeleteConfirmation(context, newsItem),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -302,6 +304,7 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
     File? selectedFile;
     final ImagePicker picker = ImagePicker();
     bool isLoading = false;
+    String? errorMessage;
 
     return showModalBottomSheet(
       context: context,
@@ -342,6 +345,38 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                       ],
                     ),
                   ),
+                  if (errorMessage != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        border: Border.all(color: Colors.red.shade200),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red.shade600, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              errorMessage!,
+                              style: TextStyle(
+                                color: Colors.red.shade600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close, color: Colors.red.shade600, size: 20),
+                            onPressed: () => setModalState(() => errorMessage = null),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
@@ -366,6 +401,7 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                                     if (image != null) {
                                       setModalState(() {
                                         selectedFile = File(image.path);
+                                        errorMessage = null; // Clear any previous errors
                                       });
                                     }
                                   },
@@ -421,38 +457,32 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                             onPressed: isLoading
                                 ? null
                                 : () async {
+                                    setModalState(() => errorMessage = null); // Clear previous errors
+                                    
                                     if (titleController.text.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Please enter a title'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
+                                      setModalState(() {
+                                        errorMessage = 'Please enter a title';
+                                      });
                                       return;
                                     }
 
                                     if (descriptionController.text.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Please enter a description'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
+                                      setModalState(() {
+                                        errorMessage = 'Please enter a description';
+                                      });
                                       return;
                                     }
 
                                     if (selectedFile == null) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Please select an image'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
+                                      setModalState(() {
+                                        errorMessage = 'Please select an image';
+                                      });
                                       return;
                                     }
 
                                     setModalState(() {
                                       isLoading = true;
+                                      errorMessage = null;
                                     });
 
                                     try {
@@ -469,7 +499,7 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                                       if (!mounted) return;
 
                                       // Check if news was actually created
-                                      if (createdNews != null && createdNews.isNotEmpty) {
+                                      if (createdNews.isNotEmpty) {
                                         // Update parent state and close dialog
                                         setState(() {
                                           news.addAll(createdNews);
@@ -486,27 +516,17 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                                       } else {
                                         setModalState(() {
                                           isLoading = false;
+                                          errorMessage = 'Failed to create news. Please try again.';
                                         });
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Failed to create news. Please try again.'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
                                       }
                                     } catch (e) {
                                       setModalState(() {
                                         isLoading = false;
+                                        // Only show error if it's not a successful creation
+                                        if (!e.toString().contains('201')) {
+                                          errorMessage = 'Error creating news: $e';
+                                        }
                                       });
-                                      // Only show error if it's not a successful creation
-                                      if (!e.toString().contains('201')) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Error creating news: $e'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
                                     }
                                   },
                             style: ElevatedButton.styleFrom(

@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/colors.dart';
+import '../../../providers/user_provider.dart';
 import '../models/red_tag.dart';
 import '../services/red_tag_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 
-class ManageRedTagsMainScreen extends StatefulWidget {
+class ManageRedTagsMainScreen extends ConsumerStatefulWidget {
   const ManageRedTagsMainScreen({super.key});
 
   @override
-  State<ManageRedTagsMainScreen> createState() => _ManageRedTagsMainScreenState();
+  ConsumerState<ManageRedTagsMainScreen> createState() => _ManageRedTagsMainScreenState();
 }
 
-class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
+class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScreen> {
   final RedTagService _redTagService = RedTagService();
   final _storage = const FlutterSecureStorage();
   List<RedTag> _redTags = [];
+  List<RedTag> _filteredRedTags = [];
   bool _isLoading = true;
   String? _error;
   String? _orgId;
@@ -62,8 +65,19 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
       });
 
       final redTags = await _redTagService.getRedTags(_orgId!);
+      
+      // Filter red tags based on user role
+      final userInfo = ref.read(userProvider);
+      List<RedTag> filteredTags = redTags;
+      
+      if (userInfo?.isZoneMember == true && userInfo?.zoneId != null) {
+        // Zone members can only see red tags from their assigned zone
+        filteredTags = redTags.where((tag) => tag.zoneId == userInfo!.zoneId).toList();
+      }
+
       setState(() {
         _redTags = redTags;
+        _filteredRedTags = filteredTags;
         _isLoading = false;
       });
     } catch (e) {
@@ -209,6 +223,8 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userInfo = ref.watch(userProvider);
+
     if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -235,128 +251,157 @@ class _ManageRedTagsMainScreenState extends State<ManageRedTagsMainScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Manage Red Tags'),
+        title: Text('Manage Red Tags',
+        ),
         backgroundColor: AppColors.surface,
         elevation: 0.5,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadRedTags,
-        child: ListView.separated(
-          padding: const EdgeInsets.all(20),
-          itemCount: _redTags.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
-          itemBuilder: (context, index) {
-            final tag = _redTags[index];
-            final isPending = tag.status == 'PENDING';
-            final isRejected = tag.status == 'REJECTED';
-            Color statusColor;
-            if (isPending) {
-              statusColor = AppColors.warning.withOpacity(0.2);
-            } else if (isRejected) {
-              statusColor = AppColors.error.withOpacity(0.2);
-            } else {
-              statusColor = AppColors.success.withOpacity(0.2);
-            }
-            final statusText = isPending ? 'Decision Pending' : tag.status;
-
-            return Container(
-              decoration: BoxDecoration(
-                color: statusColor,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.label_important, color: AppColors.error),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          tag.description,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Zone: ${tag.zoneName}',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (tag.remarks != null) ...[
-                    Text('Remarks: ${tag.remarks}'),
-                    const SizedBox(height: 10),
-                  ],
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isPending 
-                              ? AppColors.warning 
-                              : isRejected 
-                                  ? AppColors.error 
-                                  : AppColors.success,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          statusText,
-                          style: TextStyle(
-                            color: isPending 
-                                ? AppColors.textPrimary 
-                                : isRejected 
-                                    ? AppColors.secondaryLight 
-                                    : AppColors.secondaryDark,
-                            fontWeight: FontWeight.w600,
+      body: Column(
+        children: [
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadRedTags,
+              child: _filteredRedTags.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.label_off_outlined,
+                            size: 64,
+                            color: AppColors.textLight,
                           ),
-                        ),
-                      ),
-                      PopupMenuButton<String>(
-                        onSelected: (value) {
-                          switch (value) {
-                            case 'edit':
-                              _showEditDialog(tag);
-                              break;
-                            case 'delete':
-                              _showDeleteConfirmation(tag);
-                              break;
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit),
-                                SizedBox(width: 8),
-                                Text('Edit'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text('Delete', style: TextStyle(color: Colors.red)),
-                              ],
+                          const SizedBox(height: 16),
+                          Text(
+                            'No red tags found',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: _filteredRedTags.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        final tag = _filteredRedTags[index];
+                        final isPending = tag.status == 'PENDING';
+                        final isRejected = tag.status == 'REJECTED';
+                        Color statusColor;
+                        if (isPending) {
+                          statusColor = AppColors.warning.withOpacity(0.2);
+                        } else if (isRejected) {
+                          statusColor = AppColors.error.withOpacity(0.2);
+                        } else {
+                          statusColor = AppColors.success.withOpacity(0.2);
+                        }
+                        final statusText = isPending ? 'Decision Pending' : tag.status;
+
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.label_important, color: AppColors.error),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      tag.description,
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Zone: ${tag.zoneName}',
+                                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              if (tag.remarks != null) ...[
+                                Text('Remarks: ${tag.remarks}'),
+                                const SizedBox(height: 10),
+                              ],
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isPending 
+                                          ? AppColors.warning 
+                                          : isRejected 
+                                              ? AppColors.error 
+                                              : AppColors.success,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      statusText,
+                                      style: TextStyle(
+                                        color: isPending 
+                                            ? AppColors.textPrimary 
+                                            : isRejected 
+                                                ? AppColors.secondaryLight 
+                                                : AppColors.secondaryDark,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                    PopupMenuButton<String>(
+                                      icon: const Icon(Icons.more_vert),
+                                      onSelected: (value) {
+                                        switch (value) {
+                                          case 'edit':
+                                            _showEditDialog(tag);
+                                            break;
+                                          case 'delete':
+                                            _showDeleteConfirmation(tag);
+                                            break;
+                                        }
+                                      },
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit),
+                                              SizedBox(width: 8),
+                                              Text('Edit'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.delete, color: Colors.red),
+                                              SizedBox(width: 8),
+                                              Text('Delete', style: TextStyle(color: Colors.red)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/create-red-tag'),

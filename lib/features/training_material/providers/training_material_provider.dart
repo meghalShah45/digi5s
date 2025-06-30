@@ -35,48 +35,86 @@ class TrainingMaterialsNotifier extends StateNotifier<List<TrainingMaterial>> {
     }
   }
 
-  Future<void> uploadTrainingMaterial({
+  Future<Map<String, dynamic>> uploadTrainingMaterial({
     required String orgId,
     required String materialType,
     required File file,
+    required String zoneId,
+    required String name,
   }) async {
     try {
       _isLoading = true;
       _error = null;
-      final materials = await _service.uploadTrainingMaterial(
+      final result = await _service.uploadTrainingMaterial(
         orgId: orgId,
         materialType: materialType,
         file: file,
+        zoneId: zoneId,
+        name: name,
       );
-      state = materials;
+      
+      // Check if the result contains the updated list
+      if (result['materials'] != null) {
+        state = result['materials'];
+      }
+      
+      return {
+        'success': true,
+        'message': result['message'] ?? 'Training material uploaded successfully',
+        'materials': result['materials'],
+      };
     } catch (e) {
       _error = e.toString();
+      return {
+        'success': false,
+        'message': e.toString(),
+        'materials': null,
+      };
     } finally {
       _isLoading = false;
     }
   }
 
-  Future<void> updateTrainingMaterial({
+  Future<Map<String, dynamic>> updateTrainingMaterial({
     required String id,
     required String materialType,
-    required String path,
+    File? path,
     required bool approved,
+    String? name,
+    String? zoneId,
   }) async {
-    try {
+    // try {
       _isLoading = true;
       _error = null;
-      final materials = await _service.updateTrainingMaterial(
+      final result = await _service.updateTrainingMaterial(
         id: id,
         materialType: materialType,
-        path: path,
+        file: path!,
         approved: approved,
+        name: name!,
+        zoneId: zoneId!,
       );
-      state = materials;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-    }
+      
+      // Check if the result contains the updated list
+      if (result['materials'] != null) {
+        state = result['materials'];
+      }
+      
+      return {
+        'success': true,
+        'message': result['message'] ?? 'Training material updated successfully',
+        'materials': result['materials'],
+      };
+    // } catch (e) {
+    //   _error = e.toString();
+    //   return {
+    //     'success': false,
+    //     'message': e.toString(),
+    //     'materials': null,
+    //   };
+    // } finally {
+    //   _isLoading = false;
+    // }
   }
 
   Future<void> deleteTrainingMaterial(String id) async {

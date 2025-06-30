@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/colors.dart';
+import '../../../providers/user_provider.dart';
 
-class ZoneMemberDashboard extends StatelessWidget {
+class ZoneMemberDashboard extends ConsumerWidget {
   const ZoneMemberDashboard({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userInfo = ref.watch(userProvider);
+    
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
@@ -29,7 +33,50 @@ class ZoneMemberDashboard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 20),
+              // Zone information header
+              if (userInfo != null && userInfo.zoneId.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Your Zone',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Zone ID: ${userInfo.zoneId}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
               Expanded(
                 child: _buildMainGrid(context),
               ),
@@ -57,19 +104,19 @@ class ZoneMemberDashboard extends StatelessWidget {
         ),
         buildGridItem(
           context,
-          'My Trainings',
+          'Manage Red Tags',
           const Color(0xFFE8F5E9),
           const Color(0xFF2E7D32),
-          Icons.school_outlined,
-          onTap: () => context.push('/my-trainings'),
+          Icons.label_outlined,
+          onTap: () => context.push('/manage-red-tags'),
         ),
         buildGridItem(
           context,
-          'News & Updates',
+          'What Is News',
           const Color(0xFFE8EAF6),
           const Color(0xFF283593),
           Icons.newspaper_outlined,
-          onTap: () => context.push('/news-updates'),
+          onTap: () => context.push('/what-is-news'),
         ),
         buildGridItem(
           context,
@@ -77,7 +124,7 @@ class ZoneMemberDashboard extends StatelessWidget {
           const Color(0xFFE0F2F1),
           const Color(0xFF00695C),
           Icons.menu_book_outlined,
-          onTap: () => context.push('/training-material'),
+          onTap: () => context.push('/manage-training-material'),
         ),
         buildGridItem(
           context,
@@ -85,15 +132,7 @@ class ZoneMemberDashboard extends StatelessWidget {
           const Color(0xFFFFF3E0),
           const Color(0xFFEF6C00),
           Icons.star_outline,
-          onTap: () => context.push('/best-practices'),
-        ),
-        buildGridItem(
-          context,
-          'My Progress',
-          const Color(0xFFF3E5F5),
-          const Color(0xFF7B1FA2),
-          Icons.trending_up_outlined,
-          onTap: () => context.push('/my-progress'),
+          onTap: () => context.push('/manage-best-practices'),
         ),
         buildGridItem(
           context,
@@ -102,14 +141,6 @@ class ZoneMemberDashboard extends StatelessWidget {
           const Color(0xFFC62828),
           Icons.flash_on_outlined,
           onTap: () => context.push('/flash-news'),
-        ),
-        buildGridItem(
-          context,
-          'Help & Support',
-          const Color(0xFFFCE4EC),
-          const Color(0xFFC2185B),
-          Icons.help_outline,
-          onTap: () => context.push('/help-support'),
         ),
       ],
     );
@@ -121,7 +152,7 @@ class ZoneMemberDashboard extends StatelessWidget {
     Color bgColor,
     Color iconColor,
     IconData icon, {
-      VoidCallback? onTap,
+    VoidCallback? onTap,
   }) {
     return InkWell(
       onTap: onTap,
@@ -141,18 +172,23 @@ class ZoneMemberDashboard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                size: 20,
-                color: iconColor,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: iconColor,
+                  ),
+                ),
+              ],
             ),
             const Spacer(),
             Text(

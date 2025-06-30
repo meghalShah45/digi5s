@@ -259,13 +259,13 @@ class _ManageManualScreenState extends State<ManageManualScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Zone: ${manual.zoneName}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
+                  // Text(
+                  //   'Zone: ${manual.zoneName}',
+                  //   style: TextStyle(
+                  //     fontSize: 14,
+                  //     color: Colors.grey[600],
+                  //   ),
+                  // ),
                 ],
               ),
               subtitle: Column(
@@ -339,6 +339,7 @@ class _ManageManualScreenState extends State<ManageManualScreen> {
 
   Future<void> _showUploadManualSheet(BuildContext context) async {
     final nameController = TextEditingController();
+    String? selectedZoneIdInModal = selectedZoneId; // Initialize with current selection
     File? selectedFile;
     final ImagePicker picker = ImagePicker();
 
@@ -346,170 +347,238 @@ class _ManageManualScreenState extends State<ManageManualScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Colors.grey),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Upload Manual',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Manual Name',
-                        hintText: 'Enter manual name',
-                        border: OutlineInputBorder(),
+                    const Text(
+                      'Upload Manual',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                        if (image != null) {
-                          setState(() {
-                            selectedFile = File(image.path);
-                          });
-                        }
-                      },
-                      icon: const Icon(Icons.upload_file),
-                      label: Text(selectedFile != null ? 'File Selected' : 'Select File'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                    if (selectedFile != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Selected file: ${selectedFile!.path.split('/').last}',
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.grey),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        if (nameController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter a name'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-
-                        if (selectedFile == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please select a file'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                          return;
-                        }
-
-                        try {
-                          final storage = const FlutterSecureStorage();
-                          final orgId = await storage.read(key: 'orgId') ?? '';
-                          
-                          final selectedZone = zones.firstWhere((zone) => zone.id == selectedZoneId);
-                          
-                          final uploadedManuals = await _manualService.uploadManual(
-                            orgId: orgId,
-                            zoneId: selectedZone.id,
-                            zoneName: selectedZone.zoneName,
-                            name: nameController.text,
-                            file: selectedFile!,
-                          );
-
-                          setState(() {
-                            manuals.addAll(uploadedManuals);
-                          });
-
-                          if (mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Manual uploaded successfully'),
-                                backgroundColor: Colors.green,
-                              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Manual Name',
+                          hintText: 'Enter manual name',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: selectedZoneIdInModal,
+                            hint: const Text('Select Zone'),
+                            isExpanded: true,
+                            items: zones.map((zone) => DropdownMenuItem<String>(
+                                  value: zone.id,
+                                  child: Text(zone.zoneName),
+                                )).toList(),
+                            onChanged: (value) {
+                              setModalState(() {
+                                selectedZoneIdInModal = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Supported file types: PNG, JPG, JPEG, PDF',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          try {
+                            final XFile? image = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              requestFullMetadata: false,
                             );
-                          }
-                        } catch (e) {
-                          if (mounted) {
+                            
+                            if (image != null) {
+                              final fileName = image.path.split('/').last.toLowerCase();
+                              if (fileName.endsWith('.png') || 
+                                  fileName.endsWith('.jpg') || 
+                                  fileName.endsWith('.jpeg')) {
+                                setModalState(() {
+                                  selectedFile = File(image.path);
+                                });
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please select PNG, JPG, or JPEG files. For PDF files, please use the file manager.'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Error uploading manual: $e'),
+                                content: Text('Error selecting file: $e'),
                                 backgroundColor: Colors.red,
                               ),
                             );
                           }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        minimumSize: const Size(double.infinity, 48),
+                        },
+                        icon: const Icon(Icons.upload_file),
+                        label: Text(selectedFile != null ? 'File Selected' : 'Select Image (PNG/JPG)'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                        ),
                       ),
-                      child: const Text('Upload', style: TextStyle(color: Colors.white)),
-                    ),
+                      const SizedBox(height: 8),
+                      // Text(
+                      //   'Note: For PDF files, please use your device\'s file manager to copy the file to a supported location, then select it here.',
+                      //   style: TextStyle(
+                      //     color: Colors.orange[700],
+                      //     fontSize: 11,
+                      //     fontStyle: FontStyle.italic,
+                      //   ),
+                      // ),
+                      if (selectedFile != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Selected file: ${selectedFile!.path.split('/').last}',
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.grey),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (nameController.text.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter a manual name'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          if (selectedZoneIdInModal == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please select a zone'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          try {
+                            final storage = const FlutterSecureStorage();
+                            final orgId = await storage.read(key: 'orgId') ?? '';
+                            
+                            final selectedZone = zones.firstWhere((zone) => zone.id == selectedZoneIdInModal);
+                            
+                            final uploadedManuals = await _manualService.uploadManual(
+                              orgId: orgId,
+                              zoneId: selectedZone.id,
+                              zoneName: selectedZone.zoneName,
+                              name: nameController.text,
+                              file: selectedFile,
+                            );
+
+                            setState(() {
+                              manuals.addAll(uploadedManuals);
+                            });
+
+                            if (mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Manual uploaded successfully'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error uploading manual: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          minimumSize: const Size(double.infinity, 48),
+                        ),
+                        child: const Text('Upload', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

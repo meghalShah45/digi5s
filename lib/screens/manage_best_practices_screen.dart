@@ -9,6 +9,7 @@ import '../services/best_practice_service.dart';
 import '../theme/colors.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/user_provider.dart';
 
 class BestPractice {
   final String id;
@@ -45,14 +46,14 @@ class BestPractice {
   }
 }
 
-class ManageBestPracticesScreen extends StatefulWidget {
+class ManageBestPracticesScreen extends ConsumerStatefulWidget {
   const ManageBestPracticesScreen({Key? key}) : super(key: key);
 
   @override
-  State<ManageBestPracticesScreen> createState() => _ManageBestPracticesScreenState();
+  ConsumerState<ManageBestPracticesScreen> createState() => _ManageBestPracticesScreenState();
 }
 
-class _ManageBestPracticesScreenState extends State<ManageBestPracticesScreen> {
+class _ManageBestPracticesScreenState extends ConsumerState<ManageBestPracticesScreen> {
   final ZoneService _zoneService = ZoneService();
   final BestPracticeService _bestPracticeService = BestPracticeService();
   String? selectedZoneId;
@@ -212,9 +213,12 @@ class _ManageBestPracticesScreenState extends State<ManageBestPracticesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userInfo = ref.watch(userProvider);
+    final isZoneMember = userInfo?.isZoneMember ?? false;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Best Practices'),
+        title: Text(isZoneMember ? 'View Best Practices' : 'Manage Best Practices'),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -263,27 +267,26 @@ class _ManageBestPracticesScreenState extends State<ManageBestPracticesScreen> {
                                                     style: Theme.of(context).textTheme.titleLarge,
                                                   ),
                                                 ),
-                                                if (practice.approved)
-                                                  const Icon(Icons.check_circle, color: Colors.green),
-                                                PopupMenuButton<String>(
-                                                  onSelected: (value) {
-                                                    if (value == 'edit') {
-                                                      _showEditBestPracticeSheet(context, practice);
-                                                    } else if (value == 'delete') {
-                                                      _showDeleteConfirmation(practice);
-                                                    }
-                                                  },
-                                                  itemBuilder: (context) => [
-                                                    const PopupMenuItem(
-                                                      value: 'edit',
-                                                      child: Text('Edit'),
-                                                    ),
-                                                    const PopupMenuItem(
-                                                      value: 'delete',
-                                                      child: Text('Delete'),
-                                                    ),
-                                                  ],
-                                                ),
+                                                if (!isZoneMember)
+                                                  PopupMenuButton<String>(
+                                                    onSelected: (value) {
+                                                      if (value == 'edit') {
+                                                        _showEditBestPracticeSheet(context, practice);
+                                                      } else if (value == 'delete') {
+                                                        _showDeleteConfirmation(practice);
+                                                      }
+                                                    },
+                                                    itemBuilder: (context) => [
+                                                      const PopupMenuItem(
+                                                        value: 'edit',
+                                                        child: Text('Edit'),
+                                                      ),
+                                                      const PopupMenuItem(
+                                                        value: 'delete',
+                                                        child: Text('Delete'),
+                                                      ),
+                                                    ],
+                                                  ),
                                               ],
                                             ),
                                             const SizedBox(height: 8),
@@ -304,7 +307,7 @@ class _ManageBestPracticesScreenState extends State<ManageBestPracticesScreen> {
                     ),
                   ],
                 ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: isZoneMember ? null : FloatingActionButton(
         onPressed: () {
           _showAddBestPracticeSheet(context);
         },

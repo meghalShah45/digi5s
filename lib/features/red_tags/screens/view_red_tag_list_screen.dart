@@ -15,7 +15,6 @@ class ViewRedTagListScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Red Tag List'),
         backgroundColor: Colors.white,
-        elevation: 0.5,
         iconTheme: const IconThemeData(color: Color(0xFF2D2D2D)),
       ),
       body: ListView.separated(

@@ -134,10 +134,10 @@ final router = GoRouter(
       path: '/create-red-tag',
       builder: (context, state) => const CreateRedTagScreenWrapper(),
     ),
-    GoRoute(
-      path: '/view-red-tag-list',
-      builder: (context, state) => const ViewRedTagListScreen(),
-    ),
+    // GoRoute(
+    //   path: '/view-red-tag-list',
+    //   builder: (context, state) => const ViewRedTagListScreen(),
+    // ),
     GoRoute(
       path: '/red-tag-details/:tagId',
       builder: (BuildContext context, GoRouterState state) {
@@ -161,6 +161,12 @@ final router = GoRouter(
       path: '/manage-news',
       builder: (BuildContext context, GoRouterState state) {
         return const ManageNewsScreen();
+      },
+    ),
+    GoRoute(
+      path: '/what-is-news',
+      builder: (BuildContext context, GoRouterState state) {
+        return const ManageNewsScreen(isReadOnly: true);
       },
     ),
     GoRoute(
