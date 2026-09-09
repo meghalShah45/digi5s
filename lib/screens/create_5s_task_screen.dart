@@ -254,8 +254,8 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
 
     try {
       final zoneService = ZoneService();
-      // TODO: Replace with actual orgId
-      final zones = await zoneService.getZonesByOrgId('your-org-id');
+      final orgId = await const FlutterSecureStorage().read(key: 'orgId') ?? '';
+      final zones = await zoneService.getZonesByOrgId(orgId);
       setState(() {
         _zones = zones;
         _isLoading = false;

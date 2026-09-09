@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../theme/colors.dart';
@@ -138,9 +139,11 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
 
   Future<void> _fetchTasks() async {
     try {
+      final orgId = await const FlutterSecureStorage().read(key: 'orgId') ?? '';
+      final token = await const FlutterSecureStorage().read(key: 'token');
       final response = await http.get(
-        Uri.parse('${AppConfig.apiBaseUrl}/tasks'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('${AppConfig.apiBaseUrl}/tasks/org/$orgId'),
+        headers: {'Content-Type': 'application/json', if (token != null) 'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
