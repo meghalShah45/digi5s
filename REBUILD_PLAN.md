@@ -126,3 +126,27 @@ free-trial signup, paid signup with Razorpay, organisation pause handling, profi
 ## 5. Order of work in this session
 
 Phase 0 in full, then Phase 1, then Phase 2 and 3 feature by feature, committing after each working step.
+
+---
+
+## 6. Status (updated 2026-09-09)
+
+**Done on branch `rebuild`:**
+- Phase 0 complete: config, `ApiClient`, session with `ORG-ADMIN` normalisation, guarded router + splash, logout, platform ids/permissions/signing config, Gradle 8.11 / AGP 8.7 / Kotlin 2.1, version 2.1.0+30. Debug APK and iOS simulator builds verified.
+- Phase 1 complete: forgot-password (OTP) flow, login error mapping.
+- Phase 2 complete: dashboards read live counts, subscription banner, flash news ticker; flash news CRUD on the API.
+- Phase 3 mostly complete: training material, red tags (approval flow + details), tasks (status, completion with photos, approval list scoped to org), news / manuals / best practices org-scoped, 5S training screen live, viewer read-only gating.
+- Phase 4 complete: member deactivate / reactivate / password reset.
+- Phase 5 complete: organisations list / detail / create, approve, pause / unpause, pending paid-subscription approvals, super-admin counts, "work in organisation" mode.
+- Verified: `test/live_api_smoke_test.dart` passes for all four roles against a local backend on a copy of the production DB.
+
+**Not started:**
+- Phase 6 (free-trial signup, Razorpay paid signup, renewal). Needs Razorpay test keys and a decision on Apple guideline 3.1.1.
+- Phase 7 release items: profile screen, app icon / splash, store assets, Android upload key (see risk 1), iOS certificates.
+- Audit screens still use the June code paths (they work, but do not yet use `ApiClient`).
+- Steering committee screen is local-only (no backend); consider removing.
+
+**Blocked on the owner:**
+- `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` so the simulator can be driven for UI testing.
+- Play Console: confirm Play App Signing enrolment and request an upload-key reset if needed.
+- Production test accounts (no valid production password is known on this Mac).
