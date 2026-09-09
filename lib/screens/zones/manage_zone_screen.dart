@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/colors.dart';
 import '../../providers/zone_provider.dart';
-import '../../providers/user_provider.dart';
+import '../../core/auth/session.dart';
 import '../../models/zone_response.dart';
 import '../../services/zone_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -41,7 +41,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
         _error = null;
       });
 
-      final userInfo = ref.read(userProvider);
+      final userInfo = ref.read(currentUserProvider);
       final storage = const FlutterSecureStorage();
       final orgId = await storage.read(key: 'orgId');
 
@@ -97,8 +97,8 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userInfo = ref.watch(userProvider);
-    final isZoneMember = userInfo?.isZoneMember ?? false;
+    final userInfo = ref.watch(currentUserProvider);
+    final isZoneMember = userInfo?.isReadOnly ?? true;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -238,8 +238,8 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
   }
 
   Widget _buildZoneCard(BuildContext context, ZoneData zone) {
-    final userInfo = ref.watch(userProvider);
-    final isZoneMember = userInfo?.isZoneMember ?? false;
+    final userInfo = ref.watch(currentUserProvider);
+    final isZoneMember = userInfo?.isReadOnly ?? true;
 
     return Container(
       padding: const EdgeInsets.all(16),

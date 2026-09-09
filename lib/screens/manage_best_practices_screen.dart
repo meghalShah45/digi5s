@@ -9,7 +9,7 @@ import '../services/best_practice_service.dart';
 import '../theme/colors.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/user_provider.dart';
+import '../core/auth/session.dart';
 
 class BestPractice {
   final String id;
@@ -213,8 +213,8 @@ class _ManageBestPracticesScreenState extends ConsumerState<ManageBestPracticesS
 
   @override
   Widget build(BuildContext context) {
-    final userInfo = ref.watch(userProvider);
-    final isZoneMember = userInfo?.isZoneMember ?? false;
+    final userInfo = ref.watch(currentUserProvider);
+    final isZoneMember = userInfo?.isReadOnly ?? true;
 
     return Scaffold(
       appBar: AppBar(

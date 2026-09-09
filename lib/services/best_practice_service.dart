@@ -1,13 +1,17 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http_parser/http_parser.dart';
-import '../core/config/app_config.dart';
 
+import '../core/api/api_client.dart';
+import '../core/auth/session.dart';
+
+/// Best practices. Methods return the raw response envelope
+/// (`{statusCode, message, data}`) because the screen reads it directly.
 class BestPracticeService {
-  final String baseUrl = AppConfig.apiBaseUrl;
-  final storage = const FlutterSecureStorage();
+  BestPracticeService([ApiClient? api, SessionStore? store])
+      : _store = store ?? SessionStore(),
+        _api = api ?? ApiClient(sessionStore: store ?? SessionStore());
+
+  final ApiClient _api;
+  final SessionStore _store;
 
   Future<Map<String, dynamic>> createBestPractice({
     required String title,
@@ -15,35 +19,15 @@ class BestPracticeService {
     required String description,
     required File file,
   }) async {
-    final orgId = await storage.read(key: 'orgId') ?? '';
-    
-    final request = http.MultipartRequest(
+    final orgId = (await _store.read())?.orgId ?? '';
+    if (orgId.isEmpty) throw const ApiException(400, 'Your account is not linked to an organisation.');
+    final res = await _api.multipart(
       'POST',
-      Uri.parse('$baseUrl/best-practices'),
+      '/best-practices',
+      fields: {'orgId': orgId, 'title': title.trim(), 'zone': zone, 'description': description.trim()},
+      files: [ApiFile(field: 'file', path: file.path)],
     );
-
-    request.fields['orgId'] = orgId;
-    request.fields['title'] = title;
-    request.fields['zone'] = zone;
-    request.fields['description'] = description;
-
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'file',
-        file.path,
-        contentType: MediaType('image', 'png'),
-      ),
-    );
-
-    final response = await request.send();
-    final responseBody = await response.stream.bytesToString();
-    final jsonResponse = json.decode(responseBody);
-
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      return jsonResponse;
-    } else {
-      throw Exception(jsonResponse['message'] ?? 'Failed to create best practice');
-    }
+    return res.raw;
   }
 
   Future<Map<String, dynamic>> updateBestPractice({
@@ -53,64 +37,23 @@ class BestPracticeService {
     required String description,
     File? file,
   }) async {
-    final request = http.MultipartRequest(
+    final res = await _api.multipart(
       'PUT',
-      Uri.parse('$baseUrl/best-practices/$id'),
+      '/best-practices/$id',
+      fields: {'title': title.trim(), 'zone': zone, 'description': description.trim()},
+      files: [if (file != null) ApiFile(field: 'file', path: file.path)],
     );
-
-    request.fields['title'] = title;
-    request.fields['zone'] = zone;
-    request.fields['description'] = description;
-
-    if (file != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          file.path,
-          contentType: MediaType('image', 'png'),
-        ),
-      );
-    }
-
-    final response = await request.send();
-    final responseBody = await response.stream.bytesToString();
-    final jsonResponse = json.decode(responseBody);
-
-    if (response.statusCode == 200) {
-      return jsonResponse;
-    } else {
-      throw Exception(jsonResponse['message'] ?? 'Failed to update best practice');
-    }
+    return res.raw;
   }
 
-  Future<void> deleteBestPractice(String id) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/best-practices/$id'),
-      headers: {
-        'accept': 'application/json',
-      },
-    );
+  Future<void> deleteBestPractice(String id) => _api.delete('/best-practices/$id');
 
-    if (response.statusCode != 200) {
-      final jsonResponse = json.decode(response.body);
-      throw Exception(jsonResponse['message'] ?? 'Failed to delete best practice');
-    }
-  }
-
+  /// Best practices for the logged-in user's organisation
+  /// (`GET /best-practices/org/{orgId}`), newest first.
   Future<Map<String, dynamic>> getBestPractices() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/best-practices'),
-      headers: {
-        'accept': 'application/json',
-      },
-    );
-
-    final jsonResponse = json.decode(response.body);
-
-    if (response.statusCode == 200) {
-      return jsonResponse;
-    } else {
-      throw Exception(jsonResponse['message'] ?? 'Failed to fetch best practices');
-    }
+    final orgId = (await _store.read())?.orgId ?? '';
+    final res = await _api.get(orgId.isEmpty ? '/best-practices' : '/best-practices/org/$orgId');
+    final list = res.list..sort((a, b) => (b['createdAt'] ?? '').toString().compareTo((a['createdAt'] ?? '').toString()));
+    return {...res.raw, 'data': list};
   }
-} 
+}

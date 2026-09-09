@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/colors.dart';
-import '../../../providers/user_provider.dart';
+import '../../../core/auth/session.dart';
 import '../models/red_tag.dart';
 import '../services/red_tag_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -67,7 +67,7 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
       final redTags = await _redTagService.getRedTags(_orgId!);
       
       // Filter red tags based on user role
-      final userInfo = ref.read(userProvider);
+      final userInfo = ref.read(currentUserProvider);
       List<RedTag> filteredTags = redTags;
       
       if (userInfo?.isZoneMember == true && userInfo?.zoneId != null) {
@@ -223,7 +223,7 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
 
   @override
   Widget build(BuildContext context) {
-    final userInfo = ref.watch(userProvider);
+    final userInfo = ref.watch(currentUserProvider);
 
     if (_isLoading) {
       return const Scaffold(

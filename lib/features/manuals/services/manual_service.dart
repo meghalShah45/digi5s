@@ -1,61 +1,33 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../../../core/api/api_client.dart';
+import '../../../core/auth/session.dart';
 import '../models/manual.dart';
-import '../../../core/config/app_config.dart';
 
 class ManualService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
-  final _storage = const FlutterSecureStorage();
+  ManualService([ApiClient? api, SessionStore? store])
+      : _store = store ?? SessionStore(),
+        _api = api ?? ApiClient(sessionStore: store ?? SessionStore());
 
+  final ApiClient _api;
+  final SessionStore _store;
+
+  /// Manuals for the logged-in user's organisation (`GET /manual/org/{orgId}`).
   Future<List<Manual>> getManuals() async {
-    try {
-      final token = await _storage.read(key: 'token');
-      final response = await http.get(
-        Uri.parse('$baseUrl/manual'),
-        headers: {
-          'accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final List<dynamic> data = jsonResponse['data'];
-        return data.map((json) => Manual.fromJson(json)).toList();
-      } else {
-        throw Exception('Failed to load manuals: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error fetching manuals: $e');
-    }
+    final orgId = (await _store.read())?.orgId ?? '';
+    final res = await _api.get(orgId.isEmpty ? '/manual' : '/manual/org/$orgId');
+    final items = res.list.map(Manual.fromJson).toList();
+    items.sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+    return items;
   }
 
+  /// The backend has no per-zone route; filter the org list client-side.
   Future<List<Manual>> getManualsByZoneId(String zoneId) async {
-    try {
-      final token = await _storage.read(key: 'token');
-      final response = await http.get(
-        Uri.parse('$baseUrl/manual/zone/$zoneId'),
-        headers: {
-          'accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final List<dynamic> data = jsonResponse['data'];
-        return data.map((json) => Manual.fromJson(json)).toList();
-      } else {
-        throw Exception('Failed to load manuals for zone: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error fetching zone manuals: $e');
-    }
+    final all = await getManuals();
+    return all.where((m) => m.zoneId == zoneId).toList();
   }
 
+  /// `POST /manual` (multipart: orgId, name, createdBy?, file?).
   Future<List<Manual>> uploadManual({
     required String orgId,
     required String zoneId,
@@ -63,97 +35,26 @@ class ManualService {
     required String name,
     File? file,
   }) async {
-    try {
-      final token = await _storage.read(key: 'token');
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/manual'));
-      
-      // Add headers (matching the curl command)
-      request.headers['accept'] = 'application/json';
-      // Temporarily commenting out auth to test
-      // if (token != null) {
-      //   request.headers['Authorization'] = 'Bearer $token';
-      // }
-      
-      // Add fields (matching the curl command format)
-      request.fields['orgId'] = orgId;
-      request.fields['zoneId'] = zoneId;
-      request.fields['name'] = name;
-      // Note: Removed zoneName field as it's not in the curl command
-      
-      // Debug logging
-      print('=== Manual Upload Request Debug ===');
-      print('URL: ${request.url}');
-      print('Headers: ${request.headers}');
-      print('Fields: ${request.fields}');
-      print('Has file: ${file != null}');
-      if (file != null) {
-        print('File path: ${file.path}');
-        print('File exists: ${file.existsSync()}');
+    if (file != null) {
+      final n = file.path.toLowerCase();
+      if (!(n.endsWith('.png') || n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.pdf'))) {
+        throw const ApiException(415, 'Unsupported file type. Use PNG, JPG, JPEG or PDF.');
       }
-      
-      // Add file if provided
-      if (file != null) {
-        // Determine content type based on file extension
-        final fileName = file.path.split('/').last.toLowerCase();
-        MediaType contentType;
-        
-        if (fileName.endsWith('.png')) {
-          contentType = MediaType('image', 'png');
-        } else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
-          contentType = MediaType('image', 'jpeg');
-        } else if (fileName.endsWith('.pdf')) {
-          contentType = MediaType('application', 'pdf');
-        } else {
-          throw Exception('Unsupported file type. Supported types are PNG, JPG, JPEG, and PDF');
-        }
-        
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'file',
-            file.path,
-            contentType: contentType,
-          ),
-        );
-        
-        print('File added with content type: $contentType');
-      }
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      print('Manual upload response status: ${response.statusCode}');
-      print('Manual upload response body: ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final List<dynamic> data = jsonResponse['data'];
-        return data.map((json) => Manual.fromJson(json)).toList();
-      } else {
-        final errorResponse = json.decode(response.body);
-        throw Exception(errorResponse['message'] ?? 'Failed to upload manual: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error uploading manual: $e');
     }
+    final createdBy = (await _store.read())?.id;
+    final res = await _api.multipart(
+      'POST',
+      '/manual',
+      fields: {
+        'orgId': orgId,
+        'zoneId': zoneId,
+        'name': name.trim(),
+        if (createdBy != null) 'createdBy': createdBy,
+      },
+      files: [if (file != null) ApiFile(field: 'file', path: file.path)],
+    );
+    return res.list.map(Manual.fromJson).toList();
   }
 
-  Future<void> deleteManual(String manualId) async {
-    try {
-      final token = await _storage.read(key: 'token');
-      final response = await http.delete(
-        Uri.parse('$baseUrl/manual/$manualId'),
-        headers: {
-          'accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode != 200) {
-        final errorResponse = json.decode(response.body);
-        throw Exception(errorResponse['message'] ?? 'Failed to delete manual: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error deleting manual: $e');
-    }
-  }
-} 
+  Future<void> deleteManual(String manualId) => _api.delete('/manual/$manualId');
+}

@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../theme/colors.dart';
 import '../services/member_service.dart';
 import '../widgets/member_form.dart';
-import '../providers/user_provider.dart';
+import '../core/auth/session.dart';
 
 final memberServiceProvider = Provider((ref) => MemberService());
 
@@ -96,8 +96,8 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
   @override
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(_membersProvider);
-    final userInfo = ref.watch(userProvider);
-    final isZoneMember = userInfo?.isZoneMember ?? false;
+    final userInfo = ref.watch(currentUserProvider);
+    final isZoneMember = userInfo?.isReadOnly ?? true;
     final canAccessZone = !isZoneMember || (userInfo?.zoneId == widget.zoneId);
 
     // If zone member is trying to access a different zone, show access denied
@@ -287,8 +287,8 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
   }
 
   Widget _buildMemberCard(Map<String, dynamic> member) {
-    final userInfo = ref.watch(userProvider);
-    final isZoneMember = userInfo?.isZoneMember ?? false;
+    final userInfo = ref.watch(currentUserProvider);
+    final isZoneMember = userInfo?.isReadOnly ?? true;
 
     return Container(
       padding: const EdgeInsets.all(16),

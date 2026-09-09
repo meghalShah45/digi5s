@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/api/api_client.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'package:go_router/go_router.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
@@ -53,24 +56,25 @@ class _MyTasksScreenState extends State<MyTasksScreen>
   }
 
   Future<void> _markAsCompleted(String taskId) async {
+    final result = await showModalBottomSheet<_CompletionInput>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => const _CompletionSheet(),
+    );
+    if (result == null) return;
     try {
-      await _taskService.markTaskAsCompleted(taskId);
+      await _taskService.requestApproval(taskId, remarks: result.remarks, photos: result.photos);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Task marked as completed successfully'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('Sent to your zone leader for approval'), backgroundColor: Colors.green),
         );
-        await _fetchTasks(); // Refresh the list
+        await _fetchTasks();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to mark task as completed: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(e is ApiException ? e.message : 'Could not update the task'), backgroundColor: Colors.red),
         );
       }
     }
@@ -313,7 +317,7 @@ class _MyTasksScreenState extends State<MyTasksScreen>
               ),
             ),
           ],
-          if (task.status == 'PENDING') ...[
+          if (task.status == 'PENDING' || task.status == 'WORK-IN-PROGRESS' || task.status == 'VERIFY' || task.status == 'REJECTED') ...[
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -352,3 +356,94 @@ class _MyTasksScreenState extends State<MyTasksScreen>
     );
   }
 } 
+
+class _CompletionInput {
+  final String remarks;
+  final List<File> photos;
+  const _CompletionInput(this.remarks, this.photos);
+}
+
+class _CompletionSheet extends StatefulWidget {
+  const _CompletionSheet();
+  @override
+  State<_CompletionSheet> createState() => _CompletionSheetState();
+}
+
+class _CompletionSheetState extends State<_CompletionSheet> {
+  final _remarks = TextEditingController();
+  final List<File> _photos = [];
+  final _picker = ImagePicker();
+
+  @override
+  void dispose() {
+    _remarks.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pick(ImageSource source) async {
+    final x = await _picker.pickImage(source: source, imageQuality: 80, maxWidth: 1600);
+    if (x != null) setState(() => _photos.add(File(x.path)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Mark as completed', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('Your zone leader will review this request.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _remarks,
+            maxLines: 3,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(labelText: 'Remarks (optional)', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              OutlinedButton.icon(onPressed: () => _pick(ImageSource.camera), icon: const Icon(Icons.photo_camera_outlined), label: const Text('Camera')),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(onPressed: () => _pick(ImageSource.gallery), icon: const Icon(Icons.photo_library_outlined), label: const Text('Gallery')),
+            ],
+          ),
+          if (_photos.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 72,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _photos.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) => Stack(
+                  children: [
+                    ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(_photos[i], width: 72, height: 72, fit: BoxFit.cover)),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: InkWell(
+                        onTap: () => setState(() => _photos.removeAt(i)),
+                        child: const CircleAvatar(radius: 10, backgroundColor: Colors.black54, child: Icon(Icons.close, size: 12, color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1565C0), minimumSize: const Size.fromHeight(48)),
+            onPressed: () => Navigator.pop(context, _CompletionInput(_remarks.text, List.of(_photos))),
+            child: const Text('Send for approval'),
+          ),
+        ],
+      ),
+    );
+  }
+}
