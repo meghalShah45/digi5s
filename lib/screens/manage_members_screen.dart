@@ -286,6 +286,86 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
     );
   }
 
+
+  Future<void> _toggleMember(Map<String, dynamic> member) async {
+    final deactivate = member['approved'] != false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(deactivate ? 'Deactivate member?' : 'Reactivate member?'),
+        content: Text(deactivate
+            ? '${member['fullName'] ?? 'This member'} will no longer be able to log in.'
+            : '${member['fullName'] ?? 'This member'} will be able to log in again.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: deactivate ? Colors.red.shade700 : Colors.green.shade700),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(deactivate ? 'Deactivate' : 'Reactivate'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(memberServiceProvider).setMemberApproved(member['id'].toString(), !deactivate);
+      ref.invalidate(_membersProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(deactivate ? 'Member deactivated' : 'Member reactivated'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _resetPassword(Map<String, dynamic> member) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset password?'),
+        content: Text('A new password will be generated and emailed to ${member['email'] ?? 'the member'}.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Reset')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final newPassword = await ref.read(memberServiceProvider).resetMemberPassword(member['id'].toString());
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Password reset'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('The new password has been emailed to the member.'),
+              if (newPassword != null) ...[
+                const SizedBox(height: 12),
+                SelectableText(newPassword, style: const TextStyle(fontFamily: 'monospace', fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text('Share it securely if the email does not arrive.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              ],
+            ],
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Done'))],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+      }
+    }
+  }
+
   Widget _buildMemberCard(Map<String, dynamic> member) {
     final userInfo = ref.watch(currentUserProvider);
     final isZoneMember = userInfo?.isReadOnly ?? true;
@@ -341,42 +421,29 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, color: AppColors.textLight),
                   onSelected: (value) {
-                    if (value == 'edit') {
-                      // TODO: Implement edit functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Edit functionality coming soon'),
-                          backgroundColor: Colors.blue,
-                        ),
-                      );
-                    } else if (value == 'delete') {
-                      // TODO: Implement delete functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Delete functionality coming soon'),
-                          backgroundColor: Colors.blue,
-                        ),
-                      );
-                    }
+                    if (value == 'toggle') _toggleMember(member);
+                    if (value == 'reset') _resetPassword(member);
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
+                    PopupMenuItem(
+                      value: 'toggle',
                       child: Row(
                         children: [
-                          Icon(Icons.edit, size: 20),
-                          SizedBox(width: 8),
-                          Text('Edit'),
+                          Icon(member['approved'] == false ? Icons.person_add_alt_1 : Icons.person_off_outlined, size: 20,
+                              color: member['approved'] == false ? Colors.green : Colors.red),
+                          const SizedBox(width: 8),
+                          Text(member['approved'] == false ? 'Reactivate' : 'Deactivate',
+                              style: TextStyle(color: member['approved'] == false ? Colors.green : Colors.red)),
                         ],
                       ),
                     ),
                     const PopupMenuItem(
-                      value: 'delete',
+                      value: 'reset',
                       child: Row(
                         children: [
-                          Icon(Icons.delete, size: 20, color: Colors.red),
+                          Icon(Icons.lock_reset, size: 20),
                           SizedBox(width: 8),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
+                          Text('Reset password'),
                         ],
                       ),
                     ),

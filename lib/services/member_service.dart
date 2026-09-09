@@ -1,12 +1,14 @@
 import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'dart:convert';
-import '../core/config/app_config.dart';
 
+import '../core/api/api_client.dart';
+import '../core/auth/session.dart';
+
+/// Organisation members (users) and roles.
 class MemberService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
+  MemberService([ApiClient? api]) : _api = api ?? ApiClient(sessionStore: SessionStore());
+  final ApiClient _api;
 
+  /// `POST /users/organisation-members` (multipart). Returns the raw envelope.
   Future<Map<String, dynamic>> createOrganizationMember({
     required String orgId,
     required String zoneId,
@@ -21,147 +23,78 @@ class MemberService {
     File? file,
   }) async {
     try {
-      print('=== Member Creation Request ===');
-      print('orgId: $orgId');
-      print('zoneId: $zoneId');
-      print('roleId: $roleId');
-      print('fullName: $fullName');
-      print('email: $email');
-      print('phoneNumber: $phoneNumber');
-      print('designation: $designation');
-      print('signupType: $signupType');
-      print('role: $role');
-      print('hasFile: ${file != null}');
-      
-      var request = http.MultipartRequest(
+      final res = await _api.multipart(
         'POST',
-        Uri.parse('$baseUrl/users/organisation-members'),
-      );
-
-      // Add text fields in the exact order as the curl request
-      final fields = {
-        'orgId': orgId,
-        'zoneId': zoneId,
-        'roleId': roleId,
-        'fullName': fullName,
-        'email': email,
-        'password': password,
-        'phoneNumber': phoneNumber,
-        'designation': designation,
-        'signupType': signupType,
-        'role': role,
-      };
-
-      print('\n=== Request Fields ===');
-      fields.forEach((key, value) {
-        print('$key: $value');
-      });
-
-      request.fields.addAll(fields);
-
-      // Add file if provided
-      if (file != null) {
-        final fileStream = http.ByteStream(file.openRead());
-        final fileLength = await file.length();
-        
-        request.files.add(
-          http.MultipartFile(
-            'file',
-            fileStream,
-            fileLength,
-            filename: file.path.split('/').last,
-            contentType: MediaType('image', 'png'),
-          ),
-        );
-        print('\n=== File Info ===');
-        print('filename: ${file.path.split('/').last}');
-        print('size: $fileLength bytes');
-      }
-
-      // Add headers
-      request.headers.addAll({
-        'accept': 'application/json',
-      });
-
-      print('\n=== Request Headers ===');
-      request.headers.forEach((key, value) {
-        print('$key: $value');
-      });
-
-      var response = await request.send();
-      var responseData = await response.stream.bytesToString();
-
-      print('\n=== Response ===');
-      print('Status Code: ${response.statusCode}');
-      print('Body: $responseData');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final decodedResponse = json.decode(responseData);
-        return decodedResponse;
-      } else {
-        final errorData = json.decode(responseData);
-        final errorMessage = errorData['message'] ?? 'Unknown error';
-        throw errorMessage;
-      }
-    } catch (e) {
-      print('\n=== Error ===');
-      print(e.toString());
-      throw e.toString();
-    }
-  }
-
-  Future<Map<String, dynamic>> getZoneMembers({
-    required String orgId,
-    required String zoneId,
-  }) async {
-    try {
-      print('Fetching members for orgId: $orgId, zoneId: $zoneId');
-      final response = await http.post(
-        Uri.parse('$baseUrl/users/org/zone'),
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
+        '/users/organisation-members',
+        fields: {
           'orgId': orgId,
           'zoneId': zoneId,
-        }),
-      );
-
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else if (response.statusCode == 404) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to fetch members: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error in getZoneMembers: $e');
-      throw Exception('Error fetching members: $e');
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getRoles() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/roles'),
-        headers: {
-          'accept': 'application/json',
+          'roleId': roleId,
+          'fullName': fullName.trim(),
+          'email': email.trim().toLowerCase(),
+          'password': password,
+          'phoneNumber': phoneNumber.trim(),
+          'designation': designation.trim(),
+          'signupType': signupType,
+          'role': role,
         },
+        files: [if (file != null) ApiFile(field: 'file', path: file.path)],
       );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['statusCode'] == 200) {
-          return List<Map<String, dynamic>>.from(data['data']);
-        }
-      }
-      throw Exception('Failed to fetch roles: ${response.statusCode}');
-    } catch (e) {
-      throw Exception('Error fetching roles: $e');
+      return res.raw;
+    } on ApiException catch (e) {
+      // Callers show the thrown string directly.
+      throw e.message;
     }
   }
-} 
+
+  /// `POST /users/org/zone` — members of one zone. Returns the raw envelope
+  /// (`data` is a list of user rows).
+  Future<Map<String, dynamic>> getZoneMembers({required String orgId, required String zoneId}) async {
+    try {
+      final res = await _api.post('/users/org/zone', body: {'orgId': orgId, 'zoneId': zoneId});
+      return res.raw;
+    } on ApiException catch (e) {
+      if (e.isNotFound) return {'statusCode': 404, 'message': e.message, 'data': []};
+      rethrow;
+    }
+  }
+
+  /// `GET /users/org/{orgId}` — approved members with a zone:
+  /// `{ id, fullName, photo, role, zoneName }`.
+  Future<List<Map<String, dynamic>>> getOrgMembers(String orgId) async {
+    final res = await _api.get('/users/org/$orgId');
+    return res.list;
+  }
+
+  /// `GET /organisations/members/{orgId}` — every user row of the org.
+  Future<List<Map<String, dynamic>>> getAllOrgUsers(String orgId) async {
+    final res = await _api.get('/organisations/members/$orgId');
+    return res.list;
+  }
+
+  Future<Map<String, dynamic>?> getUser(String userId) async {
+    final res = await _api.get('/users/$userId');
+    final m = res.map;
+    return m.isEmpty ? null : m;
+  }
+
+  /// `PUT /users/organisation-members/inactive/{id}` — enable / disable login.
+  Future<void> setMemberApproved(String userId, bool approved) async {
+    await _api.put('/users/organisation-members/inactive/$userId', body: {'approved': approved});
+  }
+
+  /// `POST /users/{id}/reset-password` — server generates and emails a new
+  /// password and returns it in `data.newPassword`.
+  Future<String?> resetMemberPassword(String userId) async {
+    final res = await _api.post('/users/$userId/reset-password');
+    return res.map['newPassword']?.toString();
+  }
+
+  Future<void> deleteUser(String userId) => _api.delete('/users/$userId');
+
+  /// `GET /roles`.
+  Future<List<Map<String, dynamic>>> getRoles() async {
+    final res = await _api.get('/roles');
+    return res.list;
+  }
+}
