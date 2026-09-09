@@ -1,142 +1,140 @@
 import 'dart:io';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/api/api_client.dart';
+import '../../../core/auth/session.dart';
 import '../models/red_tag.dart';
-import '../../../core/config/app_config.dart';
 
 class RedTagService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
+  RedTagService([ApiClient? api]) : _api = api ?? ApiClient(sessionStore: SessionStore());
+  final ApiClient _api;
 
+  /// `POST /redtags` (multipart). The file is optional on the backend.
   Future<Map<String, dynamic>> createRedTag({
     required String orgId,
     required String zoneId,
     required String redTagBy,
     required String description,
-    required String remarks,
-    required File file,
+    String remarks = '',
+    File? file,
     required String createdBy,
   }) async {
     try {
-      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/redtags'));
-
-      // Add text fields
-      request.fields['orgId'] = orgId;
-      request.fields['zoneId'] = zoneId;
-      request.fields['redTagBy'] = redTagBy;
-      request.fields['description'] = description;
-      request.fields['remarks'] = remarks;
-      request.fields['createdBy'] = createdBy;
-
-      // Add file
-      final fileStream = http.ByteStream(file.openRead());
-      final fileLength = await file.length();
-      final multipartFile = http.MultipartFile(
-        'file',
-        fileStream,
-        fileLength,
-        filename: file.path.split('/').last,
-        contentType: MediaType('image', 'png'),
+      final res = await _api.multipart(
+        'POST',
+        '/redtags',
+        fields: {
+          'orgId': orgId,
+          'zoneId': zoneId,
+          'redTagBy': redTagBy,
+          'description': description.trim(),
+          'createdBy': createdBy,
+        },
+        files: [if (file != null) ApiFile(field: 'file', path: file.path)],
       );
-      request.files.add(multipartFile);
-
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return {'success': true, 'data': responseBody};
-      } else {
-        return {'success': false, 'error': responseBody};
-      }
+      return {'success': true, 'data': res.data, 'message': res.message};
+    } on ApiException catch (e) {
+      return {'success': false, 'error': e.message};
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      return {'success': false, 'error': 'Could not create the red tag.'};
     }
   }
 
+  /// `GET /redtags/org/{orgId}` newest first.
   Future<List<RedTag>> getRedTags(String orgId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/redtags/org/$orgId'),
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = json.decode(response.body);
-        final List<dynamic> data = jsonResponse['data'];
-        return data.map((json) => RedTag.fromJson(json)).toList();
-      } else {
-        throw Exception('Failed to load red tags');
-      }
-    } catch (e) {
-      throw Exception('Error fetching red tags: $e');
-    }
+    if (orgId.isEmpty) return const [];
+    final res = await _api.get('/redtags/org/$orgId');
+    final items = res.list.map(RedTag.fromJson).toList();
+    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return items;
   }
 
+  /// `GET /redtags/{id}` — raw row without the joined email / zoneName.
+  Future<RedTag?> getRedTagById(String id) async {
+    final res = await _api.get('/redtags/$id');
+    final m = res.map;
+    return m.isEmpty ? null : RedTag.fromJson(m);
+  }
+
+  /// `GET /redtags/pending/{orgId}?adminUserId=` — org-admin gated on the server.
+  Future<List<RedTag>> getPendingRedTags({required String orgId, required String adminUserId}) async {
+    final res = await _api.get('/redtags/pending/$orgId', query: {'adminUserId': adminUserId});
+    return res.list.map(RedTag.fromJson).toList();
+  }
+
+  /// `POST /redtags/approve/{id}` — APPROVE or REJECT a PENDING red tag.
+  Future<RedTag?> approveRedTag({
+    required String id,
+    required bool approve,
+    required String remarks,
+    required String adminUserId,
+  }) async {
+    final res = await _api.post('/redtags/approve/$id', body: {
+      'action': approve ? 'APPROVE' : 'REJECT',
+      'approvalRemarks': remarks.trim().isEmpty ? (approve ? 'Approved' : 'Rejected') : remarks.trim(),
+      'adminUserId': adminUserId,
+    });
+    final m = res.map;
+    return m.isEmpty ? null : RedTag.fromJson(m);
+  }
+
+  /// Legacy status path: COMPLETED / VERIFY / REJECTED with an activity note.
   Future<void> updateRedTagStatus(String redTagId, String newStatus, String activity, String actionBy) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/redtags/status/$redTagId'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'status': newStatus,
-          'activity': activity,
-          'actionBy': actionBy,
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to update red tag status');
-      }
-    } catch (e) {
-      throw Exception('Error updating red tag status: $e');
-    }
+    await _api.put('/redtags/status/$redTagId', body: {
+      'status': newStatus,
+      'activity': activity,
+      'actionBy': actionBy,
+    });
   }
 
+  /// Returns a human-readable message; never throws.
   Future<String?> deleteRedTag(String redTagId) async {
     try {
-      final response = await http.delete(
-        Uri.parse('$baseUrl/redtags/$redTagId'),
-        headers: {'accept': 'application/json'},
-      );
-
-      if (response.statusCode != 200) {
-        final errorBody = json.decode(response.body);
-        return errorBody['message'] ?? 'Failed to delete red tag';
-      }
+      await _api.delete('/redtags/$redTagId');
       return 'Red tag deleted successfully';
-    } catch (e) {
-      return 'Error deleting red tag: $e';
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Failed to delete red tag';
     }
   }
 
-  Future<void> updateRedTag(String redTagId, {
+  Future<void> updateRedTag(
+    String redTagId, {
     required String description,
-    required String path,
-    required String status,
-    required String remarks,
+    String? path,
+    String? status,
+    String? remarks,
     required String modifiedBy,
   }) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/redtags/$redTagId'),
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'description': description,
-          'path': path,
-          'status': status,
-          'remarks': remarks,
-          'modifiedBy': modifiedBy,
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        final errorBody = json.decode(response.body);
-        throw Exception(errorBody['message'] ?? 'Failed to update red tag');
-      }
-    } catch (e) {
-      throw Exception('Error updating red tag: $e');
-    }
+    await _api.put('/redtags/$redTagId', body: {
+      'description': description.trim(),
+      if (path != null) 'path': path,
+      if (status != null) 'status': status,
+      'modifiedBy': modifiedBy,
+    });
   }
-} 
+}
+
+final redTagServiceProvider = Provider((ref) => RedTagService(ref.read(apiClientProvider)));
+
+/// Red tags for the current user's org; zone roles see only their zone.
+final orgRedTagsProvider = FutureProvider.autoDispose<List<RedTag>>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  final orgId = user?.orgId;
+  if (user == null || orgId == null || orgId.isEmpty) return const [];
+  final all = await ref.read(redTagServiceProvider).getRedTags(orgId);
+  if ((user.isZoneMember || user.isZoneLeader) && (user.zoneId ?? '').isNotEmpty) {
+    return all.where((t) => t.zoneId == user.zoneId).toList();
+  }
+  return all;
+});
+
+final redTagByIdProvider = FutureProvider.autoDispose.family<RedTag?, String>((ref, id) async {
+  // Prefer the joined org list (has email + zoneName); fall back to the raw row.
+  final list = ref.watch(orgRedTagsProvider).valueOrNull;
+  final fromList = list?.where((t) => t.id == id).firstOrNull;
+  if (fromList != null) return fromList;
+  return ref.read(redTagServiceProvider).getRedTagById(id);
+});
