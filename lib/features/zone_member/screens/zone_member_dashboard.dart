@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../theme/colors.dart';
 import '../../../providers/user_provider.dart';
+import '../../../core/widgets/logout_button.dart';
 
 class ZoneMemberDashboard extends ConsumerWidget {
   const ZoneMemberDashboard({super.key});
@@ -17,6 +18,7 @@ class ZoneMemberDashboard extends ConsumerWidget {
         title: const Text('Zone Member Dashboard'),
         backgroundColor: Colors.white,
         elevation: 0.5,
+        actions: const [LogoutButton(color: AppColors.primary)],
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios,

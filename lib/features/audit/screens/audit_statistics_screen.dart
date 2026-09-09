@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../../../theme/colors.dart';
 import '../models/audit_statistics.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/config/app_config.dart';
 
 class AuditStatisticsScreen extends StatefulWidget {
   final String zoneId;
@@ -40,7 +41,7 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
         _error = null;
       });
 
-      const String baseUrl = 'http://localhost:8081';
+      const String baseUrl = AppConfig.apiBaseUrl;
       final url = widget.zoneId == 'all' 
           ? '$baseUrl/audit-sheets/statistics'
           : '$baseUrl/audit-sheets/zone/${widget.zoneId}/statistics';

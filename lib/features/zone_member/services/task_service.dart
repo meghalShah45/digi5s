@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/task.dart';
+import '../../../core/config/app_config.dart';
 
 class TaskService {
-  static const String baseUrl = 'http://localhost:8081';
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   Future<List<Task>> getTasksByUserId() async {
     try {

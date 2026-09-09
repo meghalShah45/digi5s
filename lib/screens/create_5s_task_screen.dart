@@ -9,6 +9,7 @@ import '../models/zone.dart';
 import '../theme/colors.dart';
 import '../services/zone_service.dart';
 import '../services/member_service.dart';
+import '../core/config/app_config.dart';
 
 class Create5STaskScreen extends StatefulWidget {
   const Create5STaskScreen({super.key});
@@ -293,7 +294,7 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
 
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://localhost:8081/tasks'),
+        Uri.parse('${AppConfig.apiBaseUrl}/tasks'),
       );
 
       // Add text fields

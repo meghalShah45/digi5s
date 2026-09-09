@@ -4,9 +4,10 @@ import 'package:http/http.dart' as http;
 import '../features/audit/models/audit_response.dart';
 import '../features/audit/models/audit_sheet.dart';
 import '../features/audit/models/audit_submission.dart';
+import '../core/config/app_config.dart';
 
 class AuditSheetService {
-  static const String baseUrl = 'http://localhost:8081';
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   Future<AuditSheet> createAuditSheet(AuditSheet auditSheet) async {
     try {
@@ -385,7 +386,7 @@ class AuditSheetService {
   Future<void> submitAudit(String auditSheetId, List<AuditResponse> responses) async {
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:8081/audit-sheets/$auditSheetId/submit'),
+        Uri.parse('${AppConfig.apiBaseUrl}/audit-sheets/$auditSheetId/submit'),
         headers: {
           'Content-Type': 'application/json',
         },

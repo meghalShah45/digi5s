@@ -2,16 +2,17 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/zone.dart';
+import '../core/config/app_config.dart';
 
 class ZoneService {
-  final String baseUrl = 'http://localhost:8081';
+  final String baseUrl = AppConfig.apiBaseUrl;
   final _storage = const FlutterSecureStorage();
 
   Future<List<Zone>> getZonesByOrgId(String orgId) async {
     try {
       final token = await _storage.read(key: 'token');
       final response = await http.get(
-        Uri.parse('$baseUrl/zones?orgId=$orgId'),
+        Uri.parse('$baseUrl/zones/organisation/$orgId'),
         headers: {
           'Content-Type': 'application/json',
           'accept': 'application/json',

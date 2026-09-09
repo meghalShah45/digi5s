@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../theme/colors.dart';
 import '../services/member_service.dart';
 import '../services/zone_service.dart';
+import '../core/config/app_config.dart';
 
 class Task {
   final String id;
@@ -138,7 +139,7 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
   Future<void> _fetchTasks() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:8081/tasks'),
+        Uri.parse('${AppConfig.apiBaseUrl}/tasks'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -401,7 +402,7 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
       print('Request body: ${json.encode(requestBody)}');
       
       final response = await http.post(
-        Uri.parse('http://localhost:8081/tasks/approve/$taskId'),
+        Uri.parse('${AppConfig.apiBaseUrl}/tasks/approve/$taskId'),
         headers: {
           'accept': 'application/json',
           'Content-Type': 'application/json',

@@ -3,9 +3,10 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import '../models/news.dart';
+import '../../../core/config/app_config.dart';
 
 class NewsService {
-  static const String baseUrl = 'http://localhost:8081';
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   Future<List<News>> getNews() async {
     try {

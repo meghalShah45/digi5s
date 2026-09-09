@@ -14,6 +14,7 @@ import '../models/audit_sheet.dart';
 import '../models/audit_submission.dart';
 import '../../../providers/audit_sheet_provider.dart';
 import '../../../models/zone.dart';
+import '../../../core/config/app_config.dart';
 
 
 class PerformAuditScreen extends ConsumerStatefulWidget {
@@ -383,7 +384,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       print('Submitting audit with request body:');
       print(jsonEncode(requestBody));
 
-      const String baseUrl = 'http://localhost:8081';
+      const String baseUrl = AppConfig.apiBaseUrl;
       // Make API call
       final response = await http.post(
         Uri.parse('$baseUrl/audit-sheets/${widget.sheet.id}/submit'),

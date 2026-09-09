@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/colors.dart';
 import 'home_screen.dart';
+import '../core/widgets/logout_button.dart';
 
 class SuperAdminDashboard extends StatelessWidget {
   const SuperAdminDashboard({super.key});
@@ -15,13 +16,7 @@ class SuperAdminDashboard extends StatelessWidget {
         backgroundColor: AppColors.surface,
         elevation: 0.5,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.manage_accounts, color: AppColors.primary, size: 28),
-            tooltip: 'Manage Super Admin Info',
-            onPressed: () => context.push('/super-admin/manage-superadmin-info'),
-          ),
-        ],
+        actions: const [LogoutButton(color: AppColors.primary)],
       ),
       body: SafeArea(
         child: Stack(

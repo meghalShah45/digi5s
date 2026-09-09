@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import '../models/red_tag.dart';
+import '../../../core/config/app_config.dart';
 
 class RedTagService {
-  static const String baseUrl = 'http://localhost:8081';
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   Future<Map<String, dynamic>> createRedTag({
     required String orgId,

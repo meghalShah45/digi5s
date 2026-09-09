@@ -3,9 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import '../models/training_material_model.dart';
 import 'dart:convert';
+import '../../../core/config/app_config.dart';
 
 class TrainingMaterialService {
-  final String baseUrl = 'http://localhost:8081';
+  final String baseUrl = AppConfig.apiBaseUrl;
 
   Future<List<TrainingMaterial>> getTrainingMaterials() async {
     try {

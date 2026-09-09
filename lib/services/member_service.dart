@@ -2,9 +2,10 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
+import '../core/config/app_config.dart';
 
 class MemberService {
-  static const String baseUrl = 'http://localhost:8081';
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   Future<Map<String, dynamic>> createOrganizationMember({
     required String orgId,
@@ -26,7 +27,6 @@ class MemberService {
       print('roleId: $roleId');
       print('fullName: $fullName');
       print('email: $email');
-      print('password: $password');
       print('phoneNumber: $phoneNumber');
       print('designation: $designation');
       print('signupType: $signupType');

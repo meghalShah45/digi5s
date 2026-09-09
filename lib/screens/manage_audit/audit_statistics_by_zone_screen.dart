@@ -8,6 +8,7 @@ import '../../../features/audit/models/audit_statistics.dart';
 import '../../../models/zone_response.dart';
 import '../../providers/zone_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../core/config/app_config.dart';
 
 class AuditStatisticsByZoneScreen extends ConsumerStatefulWidget {
   const AuditStatisticsByZoneScreen({Key? key}) : super(key: key);
@@ -43,7 +44,7 @@ class _AuditStatisticsByZoneScreenState extends ConsumerState<AuditStatisticsByZ
         _isLoadingStatistics = true;
       });
 
-      const String baseUrl = 'http://localhost:8081';
+      const String baseUrl = AppConfig.apiBaseUrl;
       final url = zoneId == 'all' 
           ? '$baseUrl/audit-sheets/statistics'
           : '$baseUrl/audit-sheets/zone/$zoneId/statistics';

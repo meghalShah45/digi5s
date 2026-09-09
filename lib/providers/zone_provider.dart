@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/zone_response.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../core/config/app_config.dart';
 
 final zoneListProvider = StateNotifierProvider<ZoneListNotifier, AsyncValue<List<ZoneData>?>>((ref) {
   return ZoneListNotifier();
@@ -26,7 +27,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
       }
 
       final response = await http.get(
-        Uri.parse('http://localhost:8081/zones/organisation/$orgId'),
+        Uri.parse('${AppConfig.apiBaseUrl}/zones/organisation/$orgId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -58,7 +59,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
       }
 
       final response = await http.post(
-        Uri.parse('http://localhost:8081/zones'),
+        Uri.parse('${AppConfig.apiBaseUrl}/zones'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -91,7 +92,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
       }
 
       final response = await http.put(
-        Uri.parse('http://localhost:8081/zones/$zoneId'),
+        Uri.parse('${AppConfig.apiBaseUrl}/zones/$zoneId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -126,7 +127,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
       }
 
       final response = await http.delete(
-        Uri.parse('http://localhost:8081/zones/$zoneId'),
+        Uri.parse('${AppConfig.apiBaseUrl}/zones/$zoneId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/widgets/logout_button.dart';
+
 class BaseDashboardScreen extends StatelessWidget {
   final String title;
   final Widget body;
@@ -25,6 +27,7 @@ class BaseDashboardScreen extends StatelessWidget {
             onPressed: () => context.go('/'),
           ),
           if (actions != null) ...actions!,
+          const LogoutButton(),
         ],
       ),
       body: body,

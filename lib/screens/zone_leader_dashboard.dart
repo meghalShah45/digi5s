@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/colors.dart';
+import '../core/widgets/logout_button.dart';
 
 class ZoneLeaderDashboard extends StatelessWidget {
   const ZoneLeaderDashboard({super.key});
@@ -14,6 +15,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
         title: const Text('Zone Leader Dashboard'),
         backgroundColor: Colors.white,
         elevation: 0.5,
+        actions: const [LogoutButton(color: AppColors.primary)],
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios,
@@ -94,7 +96,7 @@ class ZoneLeaderDashboard extends StatelessWidget {
           const Color(0xFFFFF3E0),
           const Color(0xFFEF6C00),
           Icons.account_tree_outlined,
-          onTap: () => context.push('/5s-org-structure'),
+          onTap: () => context.push('/manage-zone'),
         ),
         buildGridItem(
           context,

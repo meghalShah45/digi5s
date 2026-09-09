@@ -3,9 +3,10 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http_parser/http_parser.dart';
+import '../core/config/app_config.dart';
 
 class BestPracticeService {
-  final String baseUrl = 'http://localhost:8081';
+  final String baseUrl = AppConfig.apiBaseUrl;
   final storage = const FlutterSecureStorage();
 
   Future<Map<String, dynamic>> createBestPractice({
