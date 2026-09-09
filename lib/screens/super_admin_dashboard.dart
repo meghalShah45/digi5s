@@ -1,199 +1,109 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../theme/colors.dart';
-import 'home_screen.dart';
-import '../core/widgets/logout_button.dart';
 
-class SuperAdminDashboard extends StatelessWidget {
+import '../core/auth/session.dart';
+import '../core/widgets/logout_button.dart';
+import '../features/dashboard/dashboard_widgets.dart';
+import '../features/organisations/organisation_service.dart';
+import '../theme/colors.dart';
+import 'home_screen.dart' show buildGridItem;
+
+class SuperAdminDashboard extends ConsumerWidget {
   const SuperAdminDashboard({super.key});
 
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(superAdminCountsProvider);
+    ref.invalidate(pendingSubscriptionsProvider);
+    ref.invalidate(organisationsProvider);
+    await Future.wait([
+      ref.read(superAdminCountsProvider.future),
+      ref.read(pendingSubscriptionsProvider.future),
+      ref.read(organisationsProvider.future),
+    ]).catchError((_) => <Object>[]);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final counts = ref.watch(superAdminCountsProvider).valueOrNull;
+    final pending = ref.watch(pendingSubscriptionsProvider).valueOrNull?.length;
+    final orgs = ref.watch(organisationsProvider).valueOrNull;
+    final session = ref.watch(currentUserProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Super Admin Dashboard'),
+        title: const Text('Super Admin'),
         backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0.5,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        centerTitle: true,
         actions: const [LogoutButton(color: AppColors.primary)],
       ),
       body: SafeArea(
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: RefreshIndicator(
+          onRefresh: () => _refresh(ref),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            children: [
+              const DashboardHeader(),
+              const SizedBox(height: 16),
+              const ActingOrgBanner(),
+              Row(
                 children: [
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: _buildMainGrid(context),
-                  ),
+                  _stat('Organisations', orgs?.length, AppColors.primary, () => context.push('/super-admin/active-organizations')),
+                  const SizedBox(width: 8),
+                  _stat('Free trials', counts?['free'], Colors.teal, () => context.push('/super-admin/active-organizations')),
+                  const SizedBox(width: 8),
+                  _stat('Paid', counts?['paid'], Colors.green.shade700, () => context.push('/super-admin/active-organizations')),
+                  const SizedBox(width: 8),
+                  _stat('Pending', pending, Colors.orange.shade800, () => context.push('/super-admin/pending-subscriptions')),
                 ],
               ),
-            ),
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              const SizedBox(height: 16),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 15,
+                crossAxisSpacing: 15,
+                childAspectRatio: 1.05,
                 children: [
-                  // _buildSpeedDial(context),
+                  buildGridItem(context, 'Organisations', const Color(0xFFFCE4EC), const Color(0xFFC2185B),
+                      Icons.business_outlined, onTap: () => context.push('/super-admin/active-organizations')),
+                  buildGridItem(context, 'Pending\napprovals', const Color(0xFFFFF3E0), const Color(0xFFEF6C00),
+                      Icons.approval_outlined, onTap: () => context.push('/super-admin/pending-subscriptions')),
+                  buildGridItem(context, 'New\norganisation', const Color(0xFFE8F5E9), const Color(0xFF2E7D32),
+                      Icons.add_business_outlined, onTap: () => context.push('/super-admin/add-organization')),
+                  if (session?.isActingInOrg ?? false)
+                    buildGridItem(context, 'Open\n${session!.actingOrgName ?? 'organisation'}', const Color(0xFFE3F2FD),
+                        const Color(0xFF1565C0), Icons.login, onTap: () => context.go('/org-admin-dashboard')),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-
-Widget _buildMainGrid(BuildContext context) {
-  return GridView.count(
-    crossAxisCount: 2,
-    mainAxisSpacing: 15,
-    crossAxisSpacing: 15,
-    childAspectRatio: 1.05,
-    children: [
-      buildGridItem(
-        context,
-        'Manage Zone &\nmembers',
-        const Color(0xFFE8F5E9),
-        const Color(0xFF2E7D32),
-        Icons.groups_outlined,
-        onTap: () => context.push('/manage-zone'),
-      ),
-      buildGridItem(
-        context,
-        'Manage Active Organizations',
-        const Color(0xFFFCE4EC),
-        const Color(0xFFC2185B),
-        Icons.manage_accounts_outlined,
-        onTap: () => context.push('/super-admin/active-organizations'),
-      ),
-      buildGridItem(
-        context,
-        'Manage\nAudit',
-        const Color(0xFFF3E5F5),
-        const Color(0xFF7B1FA2),
-        Icons.assignment_outlined,
-        onTap: () => context.push('/manage-audit'),
-      ),
-    ],
-  );
-}
-
-
-class _ActiveOrgsPreview extends StatelessWidget {
-  const _ActiveOrgsPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    final orgs = [
-      {
-        'name': 'Organization A',
-        'plan': 'Free Trial',
-        'daysLeft': 10,
-        'phone': '1234567890',
-        'email': 'a@org.com',
-      },
-      {
-        'name': 'Organization B',
-        'plan': 'Subscription',
-        'daysLeft': null,
-        'phone': '0987654321',
-        'email': 'b@org.com',
-      },
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Active Organizations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-        const SizedBox(height: 12),
-        ...orgs.map((org) => Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 2,
-          margin: const EdgeInsets.only(bottom: 14),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
+  Widget _stat(String label, int? value, Color color, VoidCallback onTap) => Expanded(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+            decoration: BoxDecoration(color: color.withOpacity(0.10), borderRadius: BorderRadius.circular(10)),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.business, color: AppColors.primary, size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(org['name'].toString()!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: org['plan'] == 'Free Trial' ? AppColors.warning : AppColors.primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        org['plan'].toString()!,
-                        style: TextStyle(
-                          color: org['plan'] == 'Free Trial' ? Colors.black : AppColors.secondaryLight,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.phone, color: AppColors.textSecondary, size: 18),
-                    const SizedBox(width: 6),
-                    Text(org['phone'].toString()!, style: const TextStyle(color: AppColors.textSecondary)),
-                    const SizedBox(width: 18),
-                    Icon(Icons.email, color: AppColors.textSecondary, size: 18),
-                    const SizedBox(width: 6),
-                    Text(org['email'].toString()!, style: const TextStyle(color: AppColors.textSecondary)),
-                  ],
-                ),
-                if (org['plan'] == 'Free Trial' && org['daysLeft'] != null) ...[
-                  const SizedBox(height: 6),
-                  Text('Days Left: ${org['daysLeft']}', style: const TextStyle(color: AppColors.warning)),
-                ],
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.pause, color: AppColors.warning),
-                        label: const Text('Pause', style: TextStyle(color: AppColors.warning)),
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.warning),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.stop, color: AppColors.secondaryLight),
-                        label: const Text('Stop', style: TextStyle(color: AppColors.secondaryLight)),
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.error,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                value == null
+                    ? SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: color))
+                    : Text('$value', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+                const SizedBox(height: 2),
+                Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
               ],
             ),
           ),
-        )),
-      ],
-    );
-  }
+        ),
+      );
 }

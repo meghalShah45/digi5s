@@ -14,7 +14,6 @@ import 'features/red_tags/screens/manage_red_tags_main_screen.dart';
 import 'features/training_material/screens/manage_training_material_screen.dart';
 import 'features/zone_member/screens/my_tasks_screen.dart';
 import 'features/zone_member/screens/zone_member_dashboard.dart';
-import 'models/organization.dart';
 import 'screens/active_organizations_screen.dart';
 import 'screens/add_organization_screen.dart';
 import 'screens/approve_5s_task_screen.dart';
@@ -26,7 +25,8 @@ import 'screens/manage_5s_tasks_screen.dart';
 import 'screens/manage_audit/manage_audit_screen.dart';
 import 'screens/manage_best_practices_screen.dart';
 import 'screens/manage_members_screen.dart';
-import 'screens/manage_org_info_screen.dart';
+import 'screens/organisation_detail_screen.dart';
+import 'screens/pending_subscriptions_screen.dart';
 import 'screens/org_admin_dashboard.dart';
 import 'screens/red_tag_details_screen.dart';
 import 'screens/splash_screen.dart';
@@ -86,9 +86,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/super-admin/add-organization', builder: (_, __) => const AddOrganizationScreen()),
       GoRoute(path: '/super-admin/active-organizations', builder: (_, __) => const ActiveOrganizationsScreen()),
       GoRoute(
-        path: '/super-admin/manage-org-info',
-        builder: (_, state) => ManageOrgInfoScreen(org: state.extra as Organization),
+        path: '/super-admin/org/:orgId',
+        builder: (_, state) => OrganisationDetailScreen(orgId: state.pathParameters['orgId'] ?? ''),
       ),
+      GoRoute(path: '/super-admin/pending-subscriptions', builder: (_, __) => const PendingSubscriptionsScreen()),
 
       // Zones & members
       GoRoute(path: '/manage-zone', builder: (_, __) => const ManageZoneScreen()),

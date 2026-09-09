@@ -210,3 +210,41 @@ Future<void> refreshDashboard(WidgetRef ref) async {
     ref.read(orgFlashNewsProvider.future),
   ]).catchError((_) => <Object>[]);
 }
+
+
+/// Shown to a super admin working inside an organisation, with a way out.
+class ActingOrgBanner extends ConsumerWidget {
+  const ActingOrgBanner({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    if (user == null || !user.isActingInOrg) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.08),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.business, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Working in ${user.actingOrgName ?? 'organisation'}',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+          ),
+          TextButton(
+            onPressed: () async {
+              await ref.read(sessionProvider.notifier).leaveOrganisation();
+              if (context.mounted) context.go('/super-admin-dashboard');
+            },
+            child: const Text('Switch'),
+          ),
+        ],
+      ),
+    );
+  }
+}

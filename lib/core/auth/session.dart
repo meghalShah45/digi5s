@@ -40,6 +40,9 @@ class UserSession {
   final String? designation;
   final String token;
 
+  /// Super admins pick an organisation to work in; its name is kept for display.
+  final String? actingOrgName;
+
   const UserSession({
     required this.id,
     required this.email,
@@ -53,6 +56,7 @@ class UserSession {
     this.photo,
     this.phoneNumber,
     this.designation,
+    this.actingOrgName,
   });
 
   factory UserSession.fromLoginData(Map<String, dynamic> d) {
@@ -89,6 +93,7 @@ class UserSession {
         'phoneNumber': phoneNumber,
         'designation': designation,
         'token': token,
+        'actingOrgName': actingOrgName,
       };
 
   factory UserSession.fromJson(Map<String, dynamic> j) => UserSession(
@@ -104,12 +109,21 @@ class UserSession {
         phoneNumber: j['phoneNumber'] as String?,
         designation: j['designation'] as String?,
         token: j['token'] as String? ?? '',
+        actingOrgName: j['actingOrgName'] as String?,
       );
 
-  UserSession copyWith({String? fullName, String? photo, String? phoneNumber, String? designation}) =>
+  UserSession copyWith({
+    String? fullName,
+    String? photo,
+    String? phoneNumber,
+    String? designation,
+    String? orgId,
+    String? actingOrgName,
+    bool clearActingOrg = false,
+  }) =>
       UserSession(
         id: id,
-        orgId: orgId,
+        orgId: clearActingOrg ? null : (orgId ?? this.orgId),
         zoneId: zoneId,
         roleId: roleId,
         email: email,
@@ -120,7 +134,11 @@ class UserSession {
         phoneNumber: phoneNumber ?? this.phoneNumber,
         designation: designation ?? this.designation,
         token: token,
+        actingOrgName: clearActingOrg ? null : (actingOrgName ?? this.actingOrgName),
       );
+
+  /// True when a super admin has chosen an organisation to work in.
+  bool get isActingInOrg => isSuperAdmin && (orgId ?? '').isNotEmpty;
 
   bool get isSuperAdmin => role == Roles.superAdmin;
   bool get isOrgAdmin => role == Roles.orgAdmin;
@@ -223,6 +241,12 @@ class SessionNotifier extends AsyncNotifier<UserSession?> {
     if (current == null) return;
     await setSession(fn(current));
   }
+
+  /// Super admin: work inside [orgId] until [leaveOrganisation] is called.
+  Future<void> actInOrganisation({required String orgId, required String orgName}) =>
+      updateSession((s) => s.copyWith(orgId: orgId, actingOrgName: orgName));
+
+  Future<void> leaveOrganisation() => updateSession((s) => s.copyWith(clearActingOrg: true));
 
   Future<void> clear() async {
     await ref.read(sessionStoreProvider).clear();

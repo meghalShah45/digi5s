@@ -1,182 +1,171 @@
 import 'package:flutter/material.dart';
-import '../theme/colors.dart';
-import 'active_organizations_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class AddOrganizationScreen extends StatefulWidget {
+import '../core/api/api_client.dart';
+import '../features/organisations/organisation_service.dart';
+import '../theme/colors.dart';
+
+/// Super admin: create an organisation. The backend also creates its admin
+/// user and returns the generated password once.
+class AddOrganizationScreen extends ConsumerStatefulWidget {
   const AddOrganizationScreen({super.key});
 
   @override
-  State<AddOrganizationScreen> createState() => _AddOrganizationScreenState();
+  ConsumerState<AddOrganizationScreen> createState() => _AddOrganizationScreenState();
 }
 
-class _AddOrganizationScreenState extends State<AddOrganizationScreen> {
+class _AddOrganizationScreenState extends ConsumerState<AddOrganizationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _gstController = TextEditingController();
-  final _panController = TextEditingController();
-  bool isSubscription = false;
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  final _addr1 = TextEditingController();
+  final _addr2 = TextEditingController();
+  final _gst = TextEditingController();
+  final _pan = TextEditingController();
+  bool _busy = false;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Add Organization'),
-        backgroundColor: AppColors.surface,
-        elevation: 0.5,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(2),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+  void dispose() {
+    for (final c in [_name, _email, _phone, _addr1, _addr2, _gst, _pan]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _busy = true);
+    try {
+      final result = await ref.read(organisationServiceProvider).create(
+            name: _name.text,
+            email: _email.text,
+            contactNo: _phone.text,
+            addressLine1: _addr1.text,
+            addressLine2: _addr2.text,
+            gstNo: _gst.text,
+            pancardNo: _pan.text,
+          );
+      ref.invalidate(organisationsProvider);
+      if (!mounted) return;
+      final creds = result['adminCredentials'];
+      final email = creds is Map ? creds['email']?.toString() : null;
+      final password = creds is Map ? creds['password']?.toString() : null;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Organisation created'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('An admin account was created and the credentials were emailed. They are shown here once:'),
+              const SizedBox(height: 12),
+              if (email != null) SelectableText('Email: $email'),
+              if (password != null) ...[
+                const SizedBox(height: 4),
+                Row(
                   children: [
-                    _buildInputField(
-                      controller: _nameController,
-                      label: 'Organization Name',
-                      icon: Icons.business,
-                      hint: 'Enter organization name',
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInputField(
-                      controller: _phoneController,
-                      label: 'Phone Number',
-                      icon: Icons.phone,
-                      hint: 'Enter phone number',
-                      keyboardType: TextInputType.phone,
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInputField(
-                      controller: _emailController,
-                      label: 'Email',
-                      icon: Icons.email,
-                      hint: 'Enter email address',
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInputField(
-                      controller: _gstController,
-                      label: 'GST Number',
-                      icon: Icons.receipt_long,
-                      hint: 'Enter GST number',
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInputField(
-                      controller: _panController,
-                      label: 'PAN Number',
-                      icon: Icons.credit_card,
-                      hint: 'Enter PAN number',
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInputField(
-                      controller: _addressController,
-                      label: 'Address',
-                      icon: Icons.location_on,
-                      hint: 'Enter address',
-                      maxLines: 3,
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 28),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.check_circle, color: AppColors.secondaryLight),
-                        label: const Text('Add Organization', style: TextStyle(color: AppColors.secondaryLight, fontSize: 16, fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            // TODO: implement create organization logic
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
+                    Expanded(child: SelectableText('Password: $password', style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold))),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 18),
+                      onPressed: () => Clipboard.setData(ClipboardData(text: password)),
                     ),
                   ],
                 ),
+              ],
+            ],
+          ),
+          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Done'))],
+        ),
+      );
+      if (mounted) context.pop();
+    } on ApiException catch (e) {
+      _snack(e.message);
+    } catch (_) {
+      _snack('Could not create the organisation.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _snack(String m) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red.shade700));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    InputDecoration dec(String label, {IconData? icon}) => InputDecoration(
+          labelText: label,
+          prefixIcon: icon == null ? null : Icon(icon),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        );
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('New organisation'),
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.textPrimary,
+        elevation: 0.5,
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            TextFormField(
+              controller: _name,
+              decoration: dec('Organisation name', icon: Icons.business),
+              textCapitalization: TextCapitalization.words,
+              validator: (v) => (v == null || v.trim().length < 2) ? 'Enter the organisation name' : null,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _email,
+              decoration: dec('Admin email', icon: Icons.email_outlined),
+              keyboardType: TextInputType.emailAddress,
+              validator: (v) {
+                final s = v?.trim() ?? '';
+                if (s.isEmpty || !s.contains('@') || !s.contains('.')) return 'Enter a valid email';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _phone,
+              decoration: dec('Contact number', icon: Icons.phone_outlined),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(controller: _addr1, decoration: dec('Address line 1', icon: Icons.location_on_outlined)),
+            const SizedBox(height: 14),
+            TextFormField(controller: _addr2, decoration: dec('Address line 2')),
+            const SizedBox(height: 14),
+            TextFormField(controller: _gst, decoration: dec('GST number'), textCapitalization: TextCapitalization.characters),
+            const SizedBox(height: 14),
+            TextFormField(controller: _pan, decoration: dec('PAN'), textCapitalization: TextCapitalization.characters),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 50,
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                onPressed: _busy ? null : _submit,
+                child: _busy
+                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Create organisation'),
               ),
             ),
+            const SizedBox(height: 8),
+            Text('The admin user is created automatically with a generated password.',
+                textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStepCircle(int step, bool active) {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        color: active ? AppColors.primary : AppColors.secondaryLight,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: active ? AppColors.primary : AppColors.secondaryDark, width: 2),
-      ),
-      child: Center(
-        child: Text(
-          '$step',
-          style: TextStyle(
-            color: active ? AppColors.secondaryLight : AppColors.textSecondary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStepLine() {
-    return Expanded(
-      child: Container(
-        height: 2,
-        color: AppColors.secondaryDark,
-      ),
-    );
-  }
-
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    String? hint,
-    int maxLines = 1,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: AppColors.primary),
-            hintText: hint,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppColors.border)),
-            filled: true,
-            fillColor: AppColors.surface,
-          ),
-          validator: validator,
-        ),
-      ],
     );
   }
 }

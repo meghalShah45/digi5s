@@ -20,6 +20,7 @@ class HomeScreen extends ConsumerWidget {
             children: [
               const DashboardHeader(),
               const SizedBox(height: 16),
+              const ActingOrgBanner(),
               const SubscriptionBanner(),
               const FlashNewsTicker(),
               const DashboardStats(),
