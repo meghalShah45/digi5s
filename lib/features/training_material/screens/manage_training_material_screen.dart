@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../models/zone.dart';
 import '../../../services/zone_service.dart';
 import '../../../theme/colors.dart';
-import '../../../providers/user_provider.dart';
+import '../../../core/auth/session.dart';
 import '../providers/training_material_provider.dart';
 import '../models/training_material_model.dart';
 
@@ -59,8 +59,7 @@ class _ManageTrainingMaterialScreenState extends ConsumerState<ManageTrainingMat
   Widget build(BuildContext context) {
     final materials = ref.watch(trainingMaterialsProvider);
     final notifier = ref.watch(trainingMaterialsProvider.notifier);
-    final userInfo = ref.watch(userProvider);
-    final isZoneMember = userInfo?.isZoneMember ?? false;
+    final isZoneMember = ref.watch(currentUserProvider)?.isReadOnly ?? true;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),

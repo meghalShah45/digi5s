@@ -5,8 +5,8 @@ class TrainingMaterial {
   final String? path;
   final bool approved;
   final DateTime createdAt;
-  final DateTime modifiedAt;
-  final String createdBy;
+  final DateTime? modifiedAt;
+  final String? createdBy;
   final String? modifiedBy;
   final String name;
   final String zoneId;
@@ -18,8 +18,8 @@ class TrainingMaterial {
     this.path,
     required this.approved,
     required this.createdAt,
-    required this.modifiedAt,
-    required this.createdBy,
+    this.modifiedAt,
+    this.createdBy,
     this.modifiedBy,
     required this.name,
     required this.zoneId,
@@ -27,33 +27,40 @@ class TrainingMaterial {
 
   factory TrainingMaterial.fromJson(Map<String, dynamic> json) {
     return TrainingMaterial(
-      id: json['id'] as String,
-      orgId: json['orgId'] as String,
-      materialType: json['materialType'] as String,
+      id: json['id'].toString(),
+      orgId: (json['orgId'] ?? '').toString(),
+      materialType: (json['materialType'] ?? '').toString(),
       path: json['path'] as String?,
-      approved: json['approved'] as bool,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      modifiedAt: DateTime.parse(json['modifiedAt'] as String),
-      createdBy: json['createdBy'] as String,
-      modifiedBy: json['modifiedBy'] as String?,
-      name: json['name'] as String,
-      zoneId: json['zoneId'] as String,
+      approved: json['approved'] == true,
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      modifiedAt: DateTime.tryParse(json['modifiedAt']?.toString() ?? ''),
+      createdBy: json['createdBy']?.toString(),
+      modifiedBy: json['modifiedBy']?.toString(),
+      name: (json['name'] ?? '').toString(),
+      zoneId: (json['zoneId'] ?? '').toString(),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'orgId': orgId,
-      'materialType': materialType,
-      'path': path,
-      'approved': approved,
-      'createdAt': createdAt.toIso8601String(),
-      'modifiedAt': modifiedAt.toIso8601String(),
-      'createdBy': createdBy,
-      'modifiedBy': modifiedBy,
-      'name': name,
-      'zoneId': zoneId,
-    };
+  /// PDF / VIDEO / IMAGE / OTHER based on the stored path.
+  String get kind {
+    final p = (path ?? '').toLowerCase();
+    if (p.endsWith('.pdf') || p.contains('.pdf')) return 'PDF';
+    if (p.endsWith('.mp4') || p.contains('.mp4')) return 'VIDEO';
+    if (RegExp(r'\.(png|jpe?g|gif|webp)').hasMatch(p)) return 'IMAGE';
+    return materialType.toUpperCase();
   }
-} 
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'orgId': orgId,
+        'materialType': materialType,
+        'path': path,
+        'approved': approved,
+        'createdAt': createdAt.toIso8601String(),
+        'modifiedAt': modifiedAt?.toIso8601String(),
+        'createdBy': createdBy,
+        'modifiedBy': modifiedBy,
+        'name': name,
+        'zoneId': zoneId,
+      };
+}
