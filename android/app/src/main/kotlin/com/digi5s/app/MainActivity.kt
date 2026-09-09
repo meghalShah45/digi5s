@@ -1,4 +1,4 @@
-package com.example.seicho_app
+package com.digi5s.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,0 +1,5 @@
+# Copy to android/key.properties (gitignored) and fill in the upload keystore details.
+storeFile=upload-keystore.jks
+storePassword=
+keyAlias=upload
+keyPassword=
