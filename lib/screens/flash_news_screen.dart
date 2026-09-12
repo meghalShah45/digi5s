@@ -19,7 +19,7 @@ class FlashNewsScreen extends ConsumerWidget {
     final async = ref.watch(orgFlashNewsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Flash News')),
+      appBar: AppBar(title: const Text('Flash News'), backgroundColor: Colors.white, foregroundColor: const Color(0xFF2D2D2D)),
       floatingActionButton: canManage
           ? FloatingActionButton.extended(
               backgroundColor: AppColors.primary,

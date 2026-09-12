@@ -8,7 +8,7 @@ class OrgAdminDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BaseDashboardScreen(
-      title: 'Organization Admin Dashboard',
+      title: 'Organisation Admin',
       body: const HomeScreen(),
     );
   }

@@ -25,9 +25,10 @@ class MyApp extends ConsumerWidget {
         scaffoldBackgroundColor: Colors.white,
         useMaterial3: true,
         appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF2D2D2D),
+          elevation: 0.5,
+          centerTitle: true,
         ),
       ),
       routerConfig: router,

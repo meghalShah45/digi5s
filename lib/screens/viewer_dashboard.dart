@@ -13,7 +13,7 @@ class ViewerDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return BaseDashboardScreen(
-      title: 'Viewer Dashboard',
+      title: 'Viewer',
       body: RefreshIndicator(
         onRefresh: () => refreshDashboard(ref),
         child: ListView(
