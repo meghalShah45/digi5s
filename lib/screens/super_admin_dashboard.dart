@@ -51,9 +51,9 @@ class SuperAdminDashboard extends ConsumerWidget {
               const ActingOrgBanner(),
               Row(
                 children: [
-                  _stat('Organisations', orgs?.length, AppColors.primary, () => context.push('/super-admin/active-organizations')),
+                  _stat('Orgs', orgs?.length, AppColors.primary, () => context.push('/super-admin/active-organizations')),
                   const SizedBox(width: 8),
-                  _stat('Free trials', counts?['free'], Colors.teal, () => context.push('/super-admin/active-organizations')),
+                  _stat('Free\ntrials', counts?['free'], Colors.teal, () => context.push('/super-admin/active-organizations')),
                   const SizedBox(width: 8),
                   _stat('Paid', counts?['paid'], Colors.green.shade700, () => context.push('/super-admin/active-organizations')),
                   const SizedBox(width: 8),
