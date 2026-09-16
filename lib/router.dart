@@ -21,6 +21,10 @@ import 'screens/create_5s_task_screen.dart';
 import 'screens/flash_news_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/onboarding/free_trial_screen.dart';
+import 'screens/onboarding/get_started_screen.dart';
+import 'screens/onboarding/intro_screen.dart';
+import 'screens/onboarding/subscribe_screen.dart';
 import 'screens/manage_5s_tasks_screen.dart';
 import 'screens/manage_audit/manage_audit_screen.dart';
 import 'screens/manage_best_practices_screen.dart';
@@ -39,12 +43,13 @@ import 'screens/zones/add_zone_screen.dart';
 import 'screens/zones/manage_zone_screen.dart';
 
 /// Routes reachable without a session.
-const _publicRoutes = {'/login', '/forgot-password'};
+const _publicRoutes = {'/intro', '/get-started', '/login', '/forgot-password', '/free-trial', '/subscribe'};
 
 /// Notifies GoRouter whenever the session changes so redirects re-run.
 class _SessionListenable extends ChangeNotifier {
   _SessionListenable(Ref ref) {
     ref.listen<AsyncValue<UserSession?>>(sessionProvider, (_, __) => notifyListeners());
+    ref.listen<AsyncValue<bool>>(introSeenProvider, (_, __) => notifyListeners());
   }
 }
 
@@ -58,20 +63,31 @@ final routerProvider = Provider<GoRouter>((ref) {
     debugLogDiagnostics: false,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
+      final intro = ref.read(introSeenProvider);
       final location = state.matchedLocation;
 
       // Still reading secure storage: stay on the splash screen.
-      if (session.isLoading) return location == '/' ? null : '/';
+      if (session.isLoading || intro.isLoading) return location == '/' ? null : '/';
 
       final user = session.valueOrNull;
       final isPublic = _publicRoutes.contains(location);
 
-      if (user == null) return isPublic ? null : '/login';
+      if (user == null) {
+        final entry = (intro.valueOrNull ?? false) ? '/get-started' : '/intro';
+        if (location == '/') return entry;
+        if (!isPublic) return entry;
+        if (location == '/intro' && (intro.valueOrNull ?? false)) return '/get-started';
+        return null;
+      }
       if (isPublic || location == '/') return user.homeRoute;
       return null;
     },
     routes: [
       GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
+      GoRoute(path: '/intro', builder: (_, __) => const IntroScreen()),
+      GoRoute(path: '/get-started', builder: (_, __) => const GetStartedScreen()),
+      GoRoute(path: '/free-trial', builder: (_, __) => const FreeTrialScreen()),
+      GoRoute(path: '/subscribe', builder: (_, __) => const SubscribeScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
 

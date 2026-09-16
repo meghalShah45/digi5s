@@ -222,6 +222,21 @@ class SessionStore {
       await _storage.delete(key: k);
     }
   }
+
+  static const _introKey = 'intro_seen_v1';
+
+  Future<bool> readIntroSeen() async {
+    try {
+      return (await _storage.read(key: _introKey)) == '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> markIntroSeen() => _storage.write(key: _introKey, value: '1');
+
+  /// Test helper: show the walkthrough again.
+  Future<void> resetIntro() => _storage.delete(key: _introKey);
 }
 
 final sessionStoreProvider = Provider<SessionStore>((ref) => SessionStore());
@@ -258,3 +273,16 @@ final sessionProvider = AsyncNotifierProvider<SessionNotifier, UserSession?>(Ses
 
 /// Convenience: the session value or null while loading / logged out.
 final currentUserProvider = Provider<UserSession?>((ref) => ref.watch(sessionProvider).valueOrNull);
+
+/// Whether the first-run walkthrough has been dismissed on this device.
+class IntroSeenNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() => ref.read(sessionStoreProvider).readIntroSeen();
+
+  Future<void> markSeen() async {
+    await ref.read(sessionStoreProvider).markIntroSeen();
+    state = const AsyncData(true);
+  }
+}
+
+final introSeenProvider = AsyncNotifierProvider<IntroSeenNotifier, bool>(IntroSeenNotifier.new);

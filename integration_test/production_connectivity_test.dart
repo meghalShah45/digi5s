@@ -26,9 +26,15 @@ void main() {
         await binding.takeScreenshot('prod_logged_in');
         return;
       }
-      if (find.text('Sign in to continue').evaluate().isNotEmpty) break;
+      if (find.text('Digital 5S Management Platform').evaluate().isNotEmpty) {
+        await tester.tap(find.text('Skip Introduction'));
+      }
+      if (find.text('Sign In').evaluate().isNotEmpty) {
+        await tester.tap(find.text('Sign In'));
+      }
+      if (find.text('Welcome Back').evaluate().isNotEmpty) break;
     }
-    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Welcome Back'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'digi5sapp@gmail.com');
     await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'definitely-wrong');
     await tester.pump(const Duration(milliseconds: 300));

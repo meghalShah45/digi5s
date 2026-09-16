@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../core/config/app_config.dart';
 import '../theme/colors.dart';
 
 /// Shown while the stored session is being read. The router redirects away
@@ -10,20 +9,15 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.primary,
+    return Scaffold(
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.verified_user_outlined, size: 72, color: Colors.white),
-            SizedBox(height: 16),
-            Text(
-              AppConfig.appName,
-              style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 32),
-            SizedBox(width: 28, height: 28, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
+            Image.asset('assets/images/digi5s_logo.png', width: 140, height: 140),
+            const SizedBox(height: 40),
+            const SizedBox(width: 28, height: 28, child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5)),
           ],
         ),
       ),

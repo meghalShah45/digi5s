@@ -25,7 +25,7 @@ class LogoutButton extends ConsumerWidget {
     );
     if (ok != true) return;
     await ref.read(authRepositoryProvider).logout();
-    if (context.mounted) context.go('/login');
+    if (context.mounted) context.go('/get-started');
   }
 
   @override

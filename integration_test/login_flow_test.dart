@@ -30,7 +30,7 @@ Future<void> logout(WidgetTester tester) async {
   await tester.tap(find.text('Log out').last);
   await waitFor(tester, find.widgetWithText(FilledButton, 'Log out'));
   await tester.tap(find.widgetWithText(FilledButton, 'Log out'));
-  await waitFor(tester, find.text('Sign in to continue'));
+  await waitFor(tester, find.text('Choose how you want to get started:'));
 }
 
 /// Pumps frames until [finder] matches (the app has spinners that never
@@ -59,8 +59,18 @@ void main() {
     app.main();
 
     // A previous run may have left a session behind: start from a clean login.
-    final start = await waitForAny(tester, [find.text('Sign in to continue'), find.textContaining('Hey, ')]);
+    final start = await waitForAny(tester, [
+      find.text('Choose how you want to get started:'),
+      find.textContaining('Hey, '),
+      find.text('Digital 5S Management Platform'),
+    ]);
     if (start == 1) await logout(tester);
+    if (start == 2) {
+      await tester.tap(find.text('Skip Introduction'));
+      await waitFor(tester, find.text('Choose how you want to get started:'));
+    }
+    await tester.tap(find.text('Sign In'));
+    await waitFor(tester, find.text('Welcome Back'));
     await binding.takeScreenshot('01_login');
 
     await tester.enterText(find.widgetWithText(TextFormField, 'Email'), _email);

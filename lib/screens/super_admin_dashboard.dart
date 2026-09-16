@@ -7,77 +7,87 @@ import '../core/widgets/logout_button.dart';
 import '../features/dashboard/dashboard_widgets.dart';
 import '../features/organisations/organisation_service.dart';
 import '../theme/colors.dart';
-import 'home_screen.dart' show buildGridItem;
 
 class SuperAdminDashboard extends ConsumerWidget {
   const SuperAdminDashboard({super.key});
 
-  Future<void> _refresh(WidgetRef ref) async {
-    ref.invalidate(superAdminCountsProvider);
-    ref.invalidate(pendingSubscriptionsProvider);
-    ref.invalidate(organisationsProvider);
-    await Future.wait([
-      ref.read(superAdminCountsProvider.future),
-      ref.read(pendingSubscriptionsProvider.future),
-      ref.read(organisationsProvider.future),
-    ]).catchError((_) => <Object>[]);
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final counts = ref.watch(superAdminCountsProvider).valueOrNull;
-    final pending = ref.watch(pendingSubscriptionsProvider).valueOrNull?.length;
-    final orgs = ref.watch(organisationsProvider).valueOrNull;
     final session = ref.watch(currentUserProvider);
+    final acting = session?.isActingInOrg ?? false;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        title: const Text('Super Admin'),
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0.5,
+        title: const Text('Super Admin Dashboard'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         centerTitle: true,
-        actions: const [LogoutButton(color: AppColors.primary)],
+        automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Log out',
+            onPressed: () => LogoutButton.confirmAndLogout(context, ref),
+          ),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () => _refresh(ref),
+          onRefresh: () async {
+            ref.invalidate(organisationsProvider);
+            ref.invalidate(pendingSubscriptionsProvider);
+          },
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
             children: [
-              const DashboardHeader(),
-              const SizedBox(height: 16),
               const ActingOrgBanner(),
-              Row(
-                children: [
-                  _stat('Orgs', orgs?.length, AppColors.primary, () => context.push('/super-admin/active-organizations')),
-                  const SizedBox(width: 8),
-                  _stat('Free\ntrials', counts?['free'], Colors.teal, () => context.push('/super-admin/active-organizations')),
-                  const SizedBox(width: 8),
-                  _stat('Paid', counts?['paid'], Colors.green.shade700, () => context.push('/super-admin/active-organizations')),
-                  const SizedBox(width: 8),
-                  _stat('Pending', pending, Colors.orange.shade800, () => context.push('/super-admin/pending-subscriptions')),
-                ],
-              ),
-              const SizedBox(height: 16),
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 15,
-                crossAxisSpacing: 15,
-                childAspectRatio: 1.05,
+                mainAxisSpacing: 18,
+                crossAxisSpacing: 18,
+                childAspectRatio: 0.9,
                 children: [
-                  buildGridItem(context, 'Organisations', const Color(0xFFFCE4EC), const Color(0xFFC2185B),
-                      Icons.business_outlined, onTap: () => context.push('/super-admin/active-organizations')),
-                  buildGridItem(context, 'Pending\napprovals', const Color(0xFFFFF3E0), const Color(0xFFEF6C00),
-                      Icons.approval_outlined, onTap: () => context.push('/super-admin/pending-subscriptions')),
-                  buildGridItem(context, 'New\norganisation', const Color(0xFFE8F5E9), const Color(0xFF2E7D32),
-                      Icons.add_business_outlined, onTap: () => context.push('/super-admin/add-organization')),
-                  if (session?.isActingInOrg ?? false)
-                    buildGridItem(context, 'Open\n${session!.actingOrgName ?? 'organisation'}', const Color(0xFFE3F2FD),
-                        const Color(0xFF1565C0), Icons.login, onTap: () => context.go('/org-admin-dashboard')),
+                  _Tile(
+                    title: 'Manage Active\nOrganizations',
+                    bg: const Color(0xFFFCE4EC),
+                    fg: const Color(0xFFC2185B),
+                    icon: Icons.manage_accounts_outlined,
+                    onTap: () => context.push('/super-admin/active-organizations'),
+                  ),
+                  _Tile(
+                    title: 'Manage\nAudit',
+                    bg: const Color(0xFFF3E5F5),
+                    fg: const Color(0xFF7B1FA2),
+                    icon: Icons.assignment_outlined,
+                    onTap: () {
+                      if (acting) {
+                        context.push('/manage-audit');
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Pick an organisation first, then choose "Work in this organisation".'),
+                        ));
+                        context.push('/super-admin/active-organizations');
+                      }
+                    },
+                  ),
+                  _Tile(
+                    title: 'Paid\nSubscriptions\nManagement',
+                    bg: const Color(0xFFE3F2FD),
+                    fg: const Color(0xFF1565C0),
+                    icon: Icons.credit_card_outlined,
+                    onTap: () => context.push('/super-admin/pending-subscriptions'),
+                  ),
+                  if (acting)
+                    _Tile(
+                      title: 'Open\n${session!.actingOrgName ?? 'organisation'}',
+                      bg: const Color(0xFFE8F5E9),
+                      fg: const Color(0xFF2E7D32),
+                      icon: Icons.login,
+                      onTap: () => context.go('/org-admin-dashboard'),
+                    ),
                 ],
               ),
             ],
@@ -86,24 +96,38 @@ class SuperAdminDashboard extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _stat(String label, int? value, Color color, VoidCallback onTap) => Expanded(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-            decoration: BoxDecoration(color: color.withOpacity(0.10), borderRadius: BorderRadius.circular(10)),
-            child: Column(
-              children: [
-                value == null
-                    ? SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: color))
-                    : Text('$value', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-                const SizedBox(height: 2),
-                Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-              ],
+class _Tile extends StatelessWidget {
+  const _Tile({required this.title, required this.bg, required this.fg, required this.icon, required this.onTap});
+  final String title;
+  final Color bg;
+  final Color fg;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(18)),
+        padding: const EdgeInsets.fromLTRB(20, 22, 16, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.55), borderRadius: BorderRadius.circular(14)),
+              child: Icon(icon, size: 24, color: fg),
             ),
-          ),
+            const SizedBox(height: 18),
+            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF2D2D2D), height: 1.25)),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }

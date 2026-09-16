@@ -62,7 +62,7 @@ class _PendingSubscriptionsScreenState extends ConsumerState<PendingSubscription
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Pending approvals'),
+        title: const Text('Paid Subscriptions'),
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         elevation: 0.5,
