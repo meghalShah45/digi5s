@@ -51,7 +51,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
       adminName: _admin.text,
       adminPhone: _phone.text,
       adminEmail: _email.text,
-      employeeCount: int.parse(_employees.text.trim()),
+      employeeCount: int.tryParse(_employees.text.trim()),
     ));
   }
 
@@ -125,11 +125,13 @@ class _RegistrationFormState extends State<RegistrationForm> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _employees,
-              decoration: _dec('No. of Employees to be subscribed'),
+              decoration: _dec('No. of Employees (optional)'),
               keyboardType: TextInputType.number,
               validator: (v) {
-                final n = int.tryParse((v ?? '').trim());
-                return (n == null || n < 1) ? 'Enter the number of employees' : null;
+                final s = (v ?? '').trim();
+                if (s.isEmpty) return null; // one price for any team size
+                final n = int.tryParse(s);
+                return (n == null || n < 1) ? 'Enter a valid number' : null;
               },
             ),
             const SizedBox(height: 28),

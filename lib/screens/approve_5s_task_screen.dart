@@ -6,6 +6,8 @@ import '../theme/colors.dart';
 import '../services/member_service.dart';
 import '../services/zone_service.dart';
 import '../core/config/app_config.dart';
+import '../core/api/api_client.dart';
+import '../widgets/read_only_notice.dart';
 
 class Task {
   final String id;
@@ -145,6 +147,7 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
         Uri.parse('${AppConfig.apiBaseUrl}/tasks/org/$orgId'),
         headers: {'Content-Type': 'application/json', if (token != null) 'Authorization': 'Bearer $token'},
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
@@ -412,6 +415,7 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
         },
         body: json.encode(requestBody),
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       print('API Response status: ${response.statusCode}');
       print('API Response body: ${response.body}');
@@ -594,14 +598,14 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: ElevatedButton(
+                                        child: ReadOnlyGate(builder: (context, readOnly) => ReadOnlyGate(builder: (context, readOnly) => ElevatedButton(
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: const Color(0xFF2E7D32),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
-                                          onPressed: _isProcessingAction ? null : () {
+                                          onPressed: readOnly || _isProcessingAction ? null : () {
                                             print('Approve button pressed for task: ${task.id}');
                                             _handleTaskAction(task.id, true);
                                           },
@@ -618,7 +622,7 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
                                                 'Approve',
                                                 style: TextStyle(color: AppColors.secondaryLight),
                                               ),
-                                        ),
+                                        ))),
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(

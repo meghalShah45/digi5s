@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/colors.dart';
+import '../core/auth/session.dart';
+import '../widgets/read_only_notice.dart';
 
-class Manage5STasksScreen extends StatelessWidget {
+class Manage5STasksScreen extends ConsumerWidget {
   const Manage5STasksScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
@@ -21,13 +24,15 @@ class Manage5STasksScreen extends StatelessWidget {
             color: AppColors.textPrimary,
             size: 20,
           ),
-          onPressed: () => context.go('/zone-leader-dashboard'),
+          // Go back to whichever dashboard this role uses (org admins reach this screen too).
+          onPressed: () => context.go(ref.read(currentUserProvider)?.homeRoute ?? '/'),
         ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
+            const ReadOnlyNotice(),
             _buildTaskCard(
               context,
               title: 'Create New Task',

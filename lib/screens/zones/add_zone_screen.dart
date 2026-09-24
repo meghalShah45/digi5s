@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../widgets/member_form.dart';
 import '../../theme/colors.dart';
 import '../../providers/zone_provider.dart';
+import '../../widgets/read_only_notice.dart';
 
 class AddZoneScreen extends ConsumerStatefulWidget {
   final String orgId;
@@ -136,6 +137,7 @@ class _AddZoneScreenState extends ConsumerState<AddZoneScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const ReadOnlyNotice(),
                 if (!_zoneCreated) _buildZoneForm(),
                 if (_zoneCreated) ...[
                   _buildSuccessMessage(),
@@ -202,8 +204,8 @@ class _AddZoneScreenState extends ConsumerState<AddZoneScreen> {
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _handleZoneSubmit,
+            child: ReadOnlyGate(builder: (context, readOnly) => ElevatedButton(
+              onPressed: readOnly || _isLoading ? null : _handleZoneSubmit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -228,7 +230,7 @@ class _AddZoneScreenState extends ConsumerState<AddZoneScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-            ),
+            )),
           ),
         ],
       ),

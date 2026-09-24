@@ -63,26 +63,48 @@ class SubscriptionBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(subscriptionStatusProvider).valueOrNull;
+    final user = ref.watch(currentUserProvider);
     if (status == null) return const SizedBox.shrink();
 
+    final canPay = user != null && (user.isOrgAdmin || user.isActingInOrg);
+    final amount = status.amountDue == null ? '' : ' ₹${_inr(status.amountDue!)}';
     String? text;
+    String? action;
     Color color = Colors.orange.shade800;
     IconData icon = Icons.warning_amber_rounded;
-    if (!status.exists) {
-      text = 'No active subscription found for your organisation.';
-    } else if (status.isExpired) {
-      text = 'Your subscription expired on ${_fmt(status.endDate)}. Please renew to continue.';
+
+    if (status.hasPendingClaim) {
+      text = 'Payment details submitted. Seicho Consulting is verifying the payment; your organisation is reactivated as soon as it is confirmed.';
+      color = Colors.blue.shade800;
+      icon = Icons.hourglass_top;
+      action = canPay ? 'View' : null;
+    } else if (status.isManuallyPaused) {
+      text = 'Your organisation has been paused by Seicho Consulting, so changes are disabled. Contact digi5sapp@gmail.com for help.';
+      color = Colors.blueGrey.shade700;
+      icon = Icons.pause_circle_outline;
+    } else if (status.isTrialEnded) {
+      text = 'Your free trial has ended. You can view your data, but changes are disabled until the one-time lifetime licence$amount is paid and confirmed.';
       color = Colors.red.shade700;
       icon = Icons.error_outline;
+      action = canPay ? 'Pay & submit details' : null;
+    } else if (status.isCloudExpired) {
+      text = 'The yearly cloud charge$amount is due. You can view your data, but changes are disabled until the payment is confirmed.';
+      color = Colors.red.shade700;
+      icon = Icons.cloud_off_outlined;
+      action = canPay ? 'Pay & submit details' : null;
+    } else if (!status.exists) {
+      text = 'No active subscription found for your organisation. The app is read-only until a subscription is active.';
     } else if (status.looksPaused) {
-      text = 'Your organisation is currently paused. Contact Seicho Consulting for help.';
+      text = 'Your organisation is currently paused, so changes are disabled. Contact Seicho Consulting for help.';
       color = Colors.blueGrey.shade700;
       icon = Icons.pause_circle_outline;
     } else if (status.isExpiringSoon) {
       final d = status.daysLeft ?? 0;
+      final days = '$d day${d == 1 ? '' : 's'}';
       text = status.isFree
-          ? 'Your free trial ends in $d day${d == 1 ? '' : 's'} (${_fmt(status.endDate)}).'
-          : 'Your subscription ends in $d day${d == 1 ? '' : 's'} (${_fmt(status.endDate)}).';
+          ? 'Your free trial ends in $days (${_fmt(status.endDate)}). Activate the lifetime licence$amount to continue without interruption.'
+          : 'Your yearly cloud service ends in $days (${_fmt(status.endDate)}). Cloud charge$amount due.';
+      action = canPay ? 'Pay & submit details' : null;
     }
     if (text == null) return const SizedBox.shrink();
 
@@ -94,15 +116,31 @@ class SubscriptionBanner extends ConsumerWidget {
         border: Border.all(color: color.withOpacity(0.4)),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500))),
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(text, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500))),
+            ],
+          ),
+          if (action != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => context.push('/licence/pay'),
+                icon: Icon(Icons.payments_outlined, size: 18, color: color),
+                label: Text(action, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+              ),
+            ),
         ],
       ),
     );
   }
+
+  static String _inr(num n) => NumberFormat.decimalPattern('en_IN').format(n);
 
   static String _fmt(DateTime? d) => d == null ? '' : DateFormat('d MMM yyyy').format(d.toLocal());
 }

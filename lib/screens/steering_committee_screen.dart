@@ -5,6 +5,7 @@ import '../models/steering_committee.dart';
 import '../providers/steering_committee_provider.dart';
 import '../widgets/member_edit_dialog.dart';
 import 'manage_steering_committee_screen.dart';
+import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 class SteeringCommitteeScreen extends ConsumerStatefulWidget {
   const SteeringCommitteeScreen({super.key});
@@ -23,6 +24,8 @@ class _SteeringCommitteeScreenState extends ConsumerState<SteeringCommitteeScree
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild when the organisation's read-only state changes.
+    ref.watch(orgReadOnlyProvider);
     final members = ref.watch(steeringCommitteeProvider);
 
     return Scaffold(
@@ -71,7 +74,7 @@ class _SteeringCommitteeScreenState extends ConsumerState<SteeringCommitteeScree
             ],
           ),
           ElevatedButton.icon(
-            onPressed: () => _showAddEditMemberDialog(context),
+            onPressed: ref.read(orgReadOnlyProvider) ? null : () => _showAddEditMemberDialog(context),
             icon: const Icon(Icons.add),
             label: const Text('Add Member'),
             style: ElevatedButton.styleFrom(
@@ -165,12 +168,12 @@ class _SteeringCommitteeScreenState extends ConsumerState<SteeringCommitteeScree
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit),
-                      onPressed: () => _showAddEditMemberDialog(context, member),
+                      onPressed: ref.read(orgReadOnlyProvider) ? null : () => _showAddEditMemberDialog(context, member),
                       color: Colors.blue,
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete),
-                      onPressed: () => _showDeleteConfirmation(context, member),
+                      onPressed: ref.read(orgReadOnlyProvider) ? null : () => _showDeleteConfirmation(context, member),
                       color: Colors.red,
                     ),
                   ],

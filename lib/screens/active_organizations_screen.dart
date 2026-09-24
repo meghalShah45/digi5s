@@ -245,9 +245,10 @@ class _OrgCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final df = DateFormat('d/M/yyyy');
-    final isFree = sub?.isFree ?? true;
+    final isFree = !org.isLicensed;
     final expired = sub == null || sub!.isExpired;
     final daysLeft = sub?.endDate == null ? null : sub!.endDate!.difference(DateTime.now()).inDays;
+    final inr = NumberFormat.decimalPattern('en_IN');
 
     Widget line(IconData icon, String text, Color color, {bool bold = false}) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -283,21 +284,25 @@ class _OrgCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(color: isFree ? _orange : AppColors.primary, borderRadius: BorderRadius.circular(10)),
-                    child: Text(isFree ? 'FREE' : 'PAID', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                    child: Text(isFree ? 'TRIAL' : 'LICENSED', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               if ((org.email ?? '').isNotEmpty) line(Icons.email, org.email!, Colors.grey.shade700),
               org.isPaused
-                  ? line(Icons.pause_circle_filled, 'PAUSED', _orange, bold: true)
+                  ? line(Icons.pause_circle_filled, 'PAUSED - ${org.pauseLabel}', _orange, bold: true)
                   : org.approved
                       ? line(Icons.check_circle, 'ACTIVE', _green, bold: true)
-                      : line(Icons.block, 'NOT APPROVED', _red, bold: true),
-              line(expired ? Icons.cancel : Icons.verified, 'Subscription: ${sub == null ? 'None' : (expired ? 'Expired' : 'Active')}',
-                  expired ? _red : _green),
-              if (sub?.startDate != null) line(Icons.calendar_today, 'Started: ${df.format(sub!.startDate!.toLocal())}', AppColors.primary),
-              if (sub?.endDate != null) line(Icons.event, 'Expires: ${df.format(sub!.endDate!.toLocal())}', _orange),
+                      : line(Icons.block, 'AWAITING PAYMENT (not approved)', _red, bold: true),
+              line(expired ? Icons.cancel : Icons.verified,
+                  '${isFree ? 'Trial' : 'Cloud service'}: ${sub == null ? 'None' : (expired ? 'Ended' : 'Active')}', expired ? _red : _green),
+              if (isFree)
+                line(Icons.local_offer_outlined,
+                    'Licence price: ₹${inr.format(org.licencePrice ?? 10000)}${org.licencePrice != null ? ' (special)' : ''}', AppColors.primary),
+              if (!isFree && org.licencePurchasedAt != null)
+                line(Icons.workspace_premium_outlined, 'Licensed: ${df.format(org.licencePurchasedAt!.toLocal())}', AppColors.primary),
+              if (sub?.endDate != null) line(Icons.event, '${isFree ? 'Trial ends' : 'Cloud valid till'}: ${df.format(sub!.endDate!.toLocal())}', _orange),
               if (daysLeft != null) line(Icons.schedule, 'Days Left: $daysLeft', daysLeft < 0 ? _red : AppColors.primary),
               const SizedBox(height: 6),
               SizedBox(

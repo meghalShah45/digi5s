@@ -5,6 +5,7 @@ import '../features/audit/models/audit_response.dart';
 import '../features/audit/models/audit_sheet.dart';
 import '../features/audit/models/audit_submission.dart';
 import '../core/config/app_config.dart';
+import '../core/api/api_client.dart';
 
 class AuditSheetService {
   static const String baseUrl = AppConfig.apiBaseUrl;
@@ -45,6 +46,7 @@ class AuditSheetService {
           }).toList(),
         }),
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       print('Response status code: ${response.statusCode}');
       print('Response body: ${response.body}');
@@ -123,6 +125,7 @@ class AuditSheetService {
           'accept': 'application/json',
         },
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       print('Response status code: ${response.statusCode}');
       print('Response body: ${response.body}');
@@ -221,6 +224,7 @@ class AuditSheetService {
           'accept': 'application/json',
         },
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       if (response.statusCode != 200 && response.statusCode != 204) {
         final errorBody = jsonDecode(response.body);
@@ -270,6 +274,7 @@ class AuditSheetService {
           }).toList(),
         }),
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       print('Response status code: ${response.statusCode}');
       print('Response body: ${response.body}');
@@ -345,6 +350,7 @@ class AuditSheetService {
           'Content-Type': 'application/json',
         },
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       print('Response status code: ${response.statusCode}');
       print('Response body: ${response.body}');
@@ -394,6 +400,7 @@ class AuditSheetService {
           'responses': responses.map((r) => r.toJson()).toList(),
         }),
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       if (response.statusCode != 200) {
         throw Exception('Failed to submit audit: ${response.statusCode}');

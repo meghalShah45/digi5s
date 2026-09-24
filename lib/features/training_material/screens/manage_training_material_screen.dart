@@ -9,6 +9,7 @@ import '../../../theme/colors.dart';
 import '../../../core/auth/session.dart';
 import '../providers/training_material_provider.dart';
 import '../models/training_material_model.dart';
+import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 class ManageTrainingMaterialScreen extends ConsumerStatefulWidget {
   const ManageTrainingMaterialScreen({Key? key}) : super(key: key);
@@ -93,7 +94,7 @@ class _ManageTrainingMaterialScreenState extends ConsumerState<ManageTrainingMat
           ],
         ),
       ),
-      floatingActionButton: isZoneMember ? null : FloatingActionButton(
+      floatingActionButton: isZoneMember || ref.watch(orgReadOnlyProvider) ? null : FloatingActionButton(
         onPressed: () => _showUploadBottomSheet(context),
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),
@@ -233,7 +234,8 @@ class _ManageTrainingMaterialScreenState extends ConsumerState<ManageTrainingMat
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
+                    enabled: !ref.read(orgReadOnlyProvider),
                     value: 'edit',
                     child: Row(
                       children: [
@@ -243,7 +245,8 @@ class _ManageTrainingMaterialScreenState extends ConsumerState<ManageTrainingMat
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
+                    enabled: !ref.read(orgReadOnlyProvider),
                     value: 'delete',
                     child: Row(
                       children: [

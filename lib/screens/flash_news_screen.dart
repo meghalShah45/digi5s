@@ -6,6 +6,7 @@ import '../core/api/api_client.dart';
 import '../core/auth/session.dart';
 import '../features/flash_news/flash_news.dart';
 import '../theme/colors.dart';
+import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 /// Flash news for the user's organisation. Admins and zone leaders can
 /// create, edit and delete; everyone else sees the active items only.
@@ -16,11 +17,13 @@ class FlashNewsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final canManage = user?.canManage ?? false;
+    // Managers still see inactive items when read-only, but can't change anything.
+    final canEdit = canManage && !ref.watch(orgReadOnlyProvider);
     final async = ref.watch(orgFlashNewsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Flash News'), backgroundColor: Colors.white, foregroundColor: const Color(0xFF2D2D2D)),
-      floatingActionButton: canManage
+      floatingActionButton: canEdit
           ? FloatingActionButton.extended(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -52,7 +55,7 @@ class FlashNewsScreen extends ConsumerWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (_, i) => _FlashNewsCard(
                 news: items[i],
-                canManage: canManage,
+                canManage: canEdit,
                 onEdit: () => _openEditor(context, ref, existing: items[i]),
                 onDelete: () => _confirmDelete(context, ref, items[i]),
               ),

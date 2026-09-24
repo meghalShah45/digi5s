@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../services/zone_service.dart';
 import '../services/red_tag_service.dart';
+import '../../../widgets/read_only_notice.dart';
 
 class CreateRedTagScreenWrapper extends StatefulWidget {
   const CreateRedTagScreenWrapper({Key? key}) : super(key: key);
@@ -162,6 +163,7 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const ReadOnlyNotice(),
             const Text(
               'Select Zone',
               style: TextStyle(
@@ -260,13 +262,13 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: ReadOnlyGate(builder: (context, readOnly) => ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: _isSubmitting ? null : _createRedTag,
+                onPressed: readOnly || _isSubmitting ? null : _createRedTag,
                 child: _isSubmitting
                     ? const SizedBox(
                         width: 24,
@@ -284,7 +286,7 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-              ),
+              )),
             ),
           ],
         ),

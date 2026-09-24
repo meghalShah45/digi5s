@@ -10,7 +10,9 @@ import '../services/manual_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ManageManualScreen extends StatefulWidget {
-  const ManageManualScreen({Key? key}) : super(key: key);
+  final bool isReadOnly;
+
+  const ManageManualScreen({Key? key, this.isReadOnly = false}) : super(key: key);
 
   @override
   State<ManageManualScreen> createState() => _ManageManualScreenState();
@@ -123,7 +125,7 @@ class _ManageManualScreenState extends State<ManageManualScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: widget.isReadOnly ? null : FloatingActionButton(
         onPressed: () => _showUploadManualSheet(context),
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),
@@ -320,6 +322,7 @@ class _ManageManualScreenState extends State<ManageManualScreen> {
                   //   icon: const Icon(Icons.edit),
                   //   onPressed: () => _showEditManualSheet(context, manual),
                   // ),
+                  if (!widget.isReadOnly)
                   IconButton(
                     icon: const Icon(Icons.delete),
                     onPressed: () => _showDeleteManualSheet(context, manual),

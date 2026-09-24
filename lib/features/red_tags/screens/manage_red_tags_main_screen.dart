@@ -7,6 +7,7 @@ import '../models/red_tag.dart';
 import '../services/red_tag_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
+import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 class ManageRedTagsMainScreen extends ConsumerStatefulWidget {
   const ManageRedTagsMainScreen({super.key});
@@ -223,6 +224,8 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild when the organisation's read-only state changes.
+    ref.watch(orgReadOnlyProvider);
     final userInfo = ref.watch(currentUserProvider);
 
     if (_isLoading) {
@@ -370,7 +373,8 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
                                         }
                                       },
                                       itemBuilder: (context) => [
-                                        const PopupMenuItem(
+                                        PopupMenuItem(
+                                          enabled: !ref.read(orgReadOnlyProvider),
                                           value: 'edit',
                                           child: Row(
                                             children: [
@@ -380,7 +384,8 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
                                             ],
                                           ),
                                         ),
-                                        const PopupMenuItem(
+                                        PopupMenuItem(
+                                          enabled: !ref.read(orgReadOnlyProvider),
                                           value: 'delete',
                                           child: Row(
                                             children: [
@@ -403,7 +408,7 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: ref.read(orgReadOnlyProvider) ? null : FloatingActionButton(
         onPressed: () => context.push('/create-red-tag'),
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),

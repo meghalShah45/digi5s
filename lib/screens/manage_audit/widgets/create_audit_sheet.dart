@@ -6,6 +6,7 @@ import '../../../providers/audit_sheet_provider.dart';
 import '../../../providers/zone_provider.dart';
 import '../../../theme/colors.dart';
 import 'add_questions_page.dart';
+import '../../../widgets/read_only_notice.dart';
 
 class CreateAuditSheetPage extends ConsumerStatefulWidget {
   const CreateAuditSheetPage({Key? key}) : super(key: key);
@@ -75,6 +76,7 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const ReadOnlyNotice(),
               TextField(
                 controller: nameController,
                 decoration: InputDecoration(
@@ -291,8 +293,8 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : _saveAuditSheet,
+                child: ReadOnlyGate(builder: (context, readOnly) => ElevatedButton(
+                  onPressed: readOnly || isLoading ? null : _saveAuditSheet,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -310,7 +312,7 @@ class _CreateAuditSheetPageState extends ConsumerState<CreateAuditSheetPage> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                ),
+                )),
               ),
             ],
           ),

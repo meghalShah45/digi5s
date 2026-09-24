@@ -48,6 +48,11 @@ class DashboardCounts {
 }
 
 /// Subscription state from `GET /organisation-subscriptions/org/{orgId}`.
+///
+/// Since the single-price model (Sept 2026) the row also carries the licence
+/// state: `planCode` (FREE trial / LIFETIME licence), `isPaused` + `pauseReason`
+/// (TRIAL_ENDED / CLOUD_EXPIRED / MANUAL), what is due and any pending offline
+/// payment claim.
 class SubscriptionStatus {
   final bool exists;
   final bool isActive;
@@ -56,6 +61,15 @@ class SubscriptionStatus {
   final int? adminUserLimit;
   final int? membersLimit;
   final num? pricePerYear;
+  final String planCode;
+  final bool isLicensed;
+  final bool isPaused;
+  final String? pauseReason;
+  final String? dueType;
+  final num? amountDue;
+  final num? licencePrice;
+  final num? cloudPerYear;
+  final bool hasPendingClaim;
 
   const SubscriptionStatus({
     required this.exists,
@@ -65,13 +79,35 @@ class SubscriptionStatus {
     this.adminUserLimit,
     this.membersLimit,
     this.pricePerYear,
+    this.planCode = 'FREE',
+    this.isLicensed = false,
+    this.isPaused = false,
+    this.pauseReason,
+    this.dueType,
+    this.amountDue,
+    this.licencePrice,
+    this.cloudPerYear,
+    this.hasPendingClaim = false,
   });
 
   static const none = SubscriptionStatus(exists: false, isActive: false);
 
+  bool get isTrialEnded => pauseReason == 'TRIAL_ENDED' || (!isLicensed && isExpired);
+  bool get isCloudExpired => pauseReason == 'CLOUD_EXPIRED' || (isLicensed && isExpired);
+  bool get isManuallyPaused => isPaused && pauseReason == 'MANUAL';
+
   int? get daysLeft => endDate == null ? null : endDate!.difference(DateTime.now()).inDays;
-  bool get isExpired => endDate != null && endDate!.isBefore(DateTime.now());
-  bool get isFree => (pricePerYear ?? 0) == 0;
+  /// The end date is inclusive (matches the backend's `endDate >= CURRENT_DATE`).
+  bool get isExpired {
+    if (endDate == null) return false;
+    final now = DateTime.now();
+    return endDate!.isBefore(DateTime(now.year, now.month, now.day));
+  }
+
+  /// Mirrors the backend subscription guard: writes are refused unless there is an
+  /// active subscription that hasn't passed its end date.
+  bool get isReadOnly => isPaused || !(exists && isActive && !isExpired);
+  bool get isFree => !isLicensed && (pricePerYear ?? 0) == 0;
 
   /// Active subscription ending within 30 days.
   bool get isExpiringSoon => isActive && !isExpired && (daysLeft ?? 999) <= 30;
@@ -87,6 +123,15 @@ class SubscriptionStatus {
         adminUserLimit: _int(j['adminUserLimit']),
         membersLimit: _int(j['membersLimit']),
         pricePerYear: num.tryParse(j['pricePerYear']?.toString() ?? ''),
+        planCode: (j['planCode'] ?? (j['licencePurchasedAt'] != null ? 'LIFETIME' : 'FREE')).toString(),
+        isLicensed: j['isLicensed'] == true || j['licencePurchasedAt'] != null,
+        isPaused: j['isPaused'] == true,
+        pauseReason: j['pauseReason']?.toString(),
+        dueType: j['dueType']?.toString(),
+        amountDue: num.tryParse(j['amountDue']?.toString() ?? ''),
+        licencePrice: num.tryParse(j['licencePrice']?.toString() ?? ''),
+        cloudPerYear: num.tryParse(j['cloudPerYear']?.toString() ?? ''),
+        hasPendingClaim: j['pendingClaim'] is Map,
       );
 
   static int? _int(dynamic v) => v == null ? null : int.tryParse(v.toString());
@@ -146,4 +191,14 @@ final subscriptionStatusProvider = FutureProvider.autoDispose<SubscriptionStatus
   final user = ref.watch(currentUserProvider);
   if (user == null || user.orgId == null || user.orgId!.isEmpty) return SubscriptionStatus.none;
   return ref.read(dashboardRepositoryProvider).subscription(user.orgId!);
+});
+
+/// True when the signed-in user's organisation is read-only (expired, paused or
+/// no subscription). Super admins are never read-only. False while loading, so
+/// controls don't flicker; the backend enforces it regardless.
+final orgReadOnlyProvider = Provider.autoDispose<bool>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null || user.isSuperAdmin) return false;
+  final status = ref.watch(subscriptionStatusProvider).valueOrNull;
+  return status?.isReadOnly ?? false;
 });

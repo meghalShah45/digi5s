@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/api/api_client.dart';
+import 'core/auth/session.dart';
 import 'core/config/app_config.dart';
 import 'router.dart';
 import 'theme/colors.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: MyApp()));
+  final container = ProviderContainer();
+  // Any 401 from any ApiClient logs the user out; the router then redirects.
+  ApiClient.globalOnUnauthorized = () => container.read(sessionProvider.notifier).clear();
+  runApp(UncontrolledProviderScope(container: container, child: const MyApp()));
 }
 
 class MyApp extends ConsumerWidget {

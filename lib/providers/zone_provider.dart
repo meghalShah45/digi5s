@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../models/zone_response.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/config/app_config.dart';
+import '../core/api/api_client.dart';
 
 final zoneListProvider = StateNotifierProvider<ZoneListNotifier, AsyncValue<List<ZoneData>?>>((ref) {
   return ZoneListNotifier();
@@ -33,6 +34,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
           'Authorization': 'Bearer $token',
         },
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       if (response.statusCode == 200) {
         final zoneResponse = ZoneResponse.fromJson(json.decode(response.body));
@@ -69,6 +71,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
           'orgId': orgId,
         }),
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       final responseData = json.decode(response.body);
       
@@ -103,6 +106,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
           'modifiedBy': 'SUPER-ADMIN',
         }),
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       final responseData = json.decode(response.body);
       
@@ -133,6 +137,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
           'Authorization': 'Bearer $token',
         },
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       final responseData = json.decode(response.body);
       

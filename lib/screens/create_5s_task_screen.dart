@@ -10,6 +10,8 @@ import '../theme/colors.dart';
 import '../services/zone_service.dart';
 import '../services/member_service.dart';
 import '../core/config/app_config.dart';
+import '../core/api/api_client.dart';
+import '../widgets/read_only_notice.dart';
 
 class Create5STaskScreen extends StatefulWidget {
   const Create5STaskScreen({super.key});
@@ -56,6 +58,7 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const ReadOnlyNotice(),
             const Text('Task Name', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             const SizedBox(height: 12),
             TextField(
@@ -174,13 +177,13 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: ReadOnlyGate(builder: (context, readOnly) => ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: _isLoading ? null : _submitTask,
+                onPressed: readOnly || _isLoading ? null : _submitTask,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text('Submit Task', style: TextStyle(
@@ -188,7 +191,7 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       )),
-              ),
+              )),
             ),
           ],
         ),
@@ -331,6 +334,7 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
+      await ApiClient.throwIfUnauthorized(response);
       print('Response status: ${response.statusCode}');
       print('Response body: ${response.body}');
 
@@ -358,7 +362,7 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create task: $e'),
+            content: Text(e is ApiException ? e.message : 'Failed to create task: ${e.toString().replaceFirst('Exception: ', '')}'),
             backgroundColor: Colors.red,
           ),
         );

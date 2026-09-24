@@ -15,6 +15,8 @@ import '../models/audit_submission.dart';
 import '../../../providers/audit_sheet_provider.dart';
 import '../../../models/zone.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/api/api_client.dart';
+import '../../dashboard/dashboard_repository.dart';
 
 
 class PerformAuditScreen extends ConsumerStatefulWidget {
@@ -99,8 +101,8 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
               _canPerformAudit = false;
               _isAuditComplete = true;
             } else if (_userRole.toString().toLowerCase() == 'zone-leader') {
-              // Zone-leaders can perform multiple audits
-              _canPerformAudit = true;
+              // Zone-leaders can perform multiple audits (unless the org is read-only)
+              _canPerformAudit = !ref.read(orgReadOnlyProvider);
               _isAuditComplete = false;
               
               // If there are submissions, show the latest one for reference
@@ -393,6 +395,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
         },
         body: jsonEncode(requestBody),
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       // Print response for debugging
       print('Response status code: ${response.statusCode}');

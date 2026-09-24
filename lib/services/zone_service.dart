@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/zone.dart';
 import '../core/config/app_config.dart';
+import '../core/api/api_client.dart';
 
 class ZoneService {
   final String baseUrl = AppConfig.apiBaseUrl;
@@ -19,6 +20,7 @@ class ZoneService {
           if (token != null) 'Authorization': 'Bearer $token',
         },
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
@@ -72,6 +74,7 @@ class ZoneService {
           if (token != null) 'Authorization': 'Bearer $token',
         },
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);

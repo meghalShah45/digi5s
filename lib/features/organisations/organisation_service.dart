@@ -14,8 +14,12 @@ class Organisation {
   final String? pancardNo;
   final bool approved;
   final bool isPaused;
+  final String? pauseReason; // TRIAL_ENDED | CLOUD_EXPIRED | MANUAL
   final DateTime? pausedAt;
   final DateTime? pauseExpiresAt;
+  final DateTime? licencePurchasedAt;
+  final num? licenceAmount;
+  final num? licencePrice; // special price set by the super admin; null = list price
   final DateTime? createdAt;
 
   const Organisation({
@@ -29,12 +33,32 @@ class Organisation {
     this.pancardNo,
     required this.approved,
     required this.isPaused,
+    this.pauseReason,
     this.pausedAt,
     this.pauseExpiresAt,
+    this.licencePurchasedAt,
+    this.licenceAmount,
+    this.licencePrice,
     this.createdAt,
   });
 
   String get address => [addressLine1, addressLine2].where((s) => s != null && s.trim().isNotEmpty).join(', ');
+  bool get isLicensed => licencePurchasedAt != null;
+  bool get isTrialEnded => pauseReason == 'TRIAL_ENDED';
+  bool get isCloudExpired => pauseReason == 'CLOUD_EXPIRED';
+
+  String get pauseLabel {
+    switch (pauseReason) {
+      case 'TRIAL_ENDED':
+        return 'Trial ended - awaiting licence payment';
+      case 'CLOUD_EXPIRED':
+        return 'Cloud charge due - awaiting payment';
+      case 'MANUAL':
+        return 'Paused by super admin';
+      default:
+        return 'Paused';
+    }
+  }
 
   factory Organisation.fromJson(Map<String, dynamic> j) => Organisation(
         id: j['id'].toString(),
@@ -47,8 +71,12 @@ class Organisation {
         pancardNo: j['pancardNo']?.toString(),
         approved: j['approved'] != false,
         isPaused: j['isPaused'] == true,
+        pauseReason: j['pauseReason']?.toString(),
         pausedAt: DateTime.tryParse(j['pausedAt']?.toString() ?? ''),
         pauseExpiresAt: DateTime.tryParse(j['pauseExpiresAt']?.toString() ?? ''),
+        licencePurchasedAt: DateTime.tryParse(j['licencePurchasedAt']?.toString() ?? ''),
+        licenceAmount: num.tryParse(j['licenceAmount']?.toString() ?? ''),
+        licencePrice: num.tryParse(j['licencePrice']?.toString() ?? ''),
         createdAt: DateTime.tryParse(j['createdAt']?.toString() ?? ''),
       );
 }
@@ -75,7 +103,7 @@ class OrgSubscriptionRow {
     this.pricePerYear,
   });
 
-  String get planLabel => isFree ? 'Free trial' : (subscriptionName ?? 'Subscription');
+  String get planLabel => isFree ? 'Free trial' : (subscriptionName ?? 'Lifetime licence');
   bool get isExpired => endDate != null && endDate!.isBefore(DateTime.now());
 
   factory OrgSubscriptionRow.fromJson(Map<String, dynamic> j) => OrgSubscriptionRow(
@@ -87,46 +115,6 @@ class OrgSubscriptionRow {
         isFree: j['isFree'] == true || (num.tryParse(j['pricePerYear']?.toString() ?? '') ?? 0) == 0,
         daysLeft: int.tryParse(j['daysLeft']?.toString() ?? ''),
         pricePerYear: num.tryParse(j['pricePerYear']?.toString() ?? ''),
-      );
-}
-
-/// Pending paid signup awaiting super-admin approval.
-class PendingSubscription {
-  final String orgId;
-  final String orgName;
-  final String adminName;
-  final String adminEmail;
-  final String adminPhone;
-  final String subscriptionName;
-  final int? membersLimit;
-  final num? pricePerYear;
-  final DateTime? createdAt;
-  final String? timeSinceCreation;
-
-  const PendingSubscription({
-    required this.orgId,
-    required this.orgName,
-    required this.adminName,
-    required this.adminEmail,
-    required this.adminPhone,
-    required this.subscriptionName,
-    this.membersLimit,
-    this.pricePerYear,
-    this.createdAt,
-    this.timeSinceCreation,
-  });
-
-  factory PendingSubscription.fromJson(Map<String, dynamic> j) => PendingSubscription(
-        orgId: (j['orgId'] ?? '').toString(),
-        orgName: (j['orgName'] ?? 'N/A').toString(),
-        adminName: (j['adminName'] ?? 'N/A').toString(),
-        adminEmail: (j['adminEmail'] ?? '').toString(),
-        adminPhone: (j['adminPhone'] ?? '').toString(),
-        subscriptionName: (j['subscriptionName'] ?? '').toString(),
-        membersLimit: int.tryParse(j['membersLimit']?.toString() ?? ''),
-        pricePerYear: num.tryParse(j['pricePerYear']?.toString() ?? ''),
-        createdAt: DateTime.tryParse(j['createdAt']?.toString() ?? ''),
-        timeSinceCreation: j['timeSinceCreation']?.toString(),
       );
 }
 
@@ -147,8 +135,9 @@ class OrganisationService {
     return m.isEmpty ? null : Organisation.fromJson(m);
   }
 
-  /// `POST /organisations` — creates the org and its admin user. Returns
-  /// `{ organisation, adminCredentials: { email, password }, adminUserId }`.
+  /// `POST /organisations` (super admin) — creates the org, its admin user and a
+  /// 15-day free trial. Returns `{ organisation, adminCredentials: { email, password }, adminUserId }`.
+  /// [licencePrice] sets a special lifetime-licence price for this client.
   Future<Map<String, dynamic>> create({
     required String name,
     required String email,
@@ -157,6 +146,7 @@ class OrganisationService {
     String? addressLine2,
     String? gstNo,
     String? pancardNo,
+    num? licencePrice,
   }) async {
     final res = await _api.post('/organisations', body: {
       'name': name.trim(),
@@ -166,6 +156,7 @@ class OrganisationService {
       if (addressLine2 != null && addressLine2.trim().isNotEmpty) 'addressLine2': addressLine2.trim(),
       if (gstNo != null && gstNo.trim().isNotEmpty) 'gstNo': gstNo.trim().toUpperCase(),
       if (pancardNo != null && pancardNo.trim().isNotEmpty) 'pancardNo': pancardNo.trim().toUpperCase(),
+      if (licencePrice != null) 'licencePrice': licencePrice,
     });
     return res.map;
   }
@@ -213,22 +204,6 @@ class OrganisationService {
       'paid': int.tryParse(m['paidSubscriptionCount']?.toString() ?? '') ?? 0,
     };
   }
-
-  Future<List<PendingSubscription>> pendingPaidSubscriptions() async {
-    final res = await _api.get('/admin/paid-subscriptions/pending', query: {'limit': '100'});
-    final list = res.map['subscriptions'];
-    if (list is! List) return const [];
-    return list.whereType<Map>().map((e) => PendingSubscription.fromJson(Map<String, dynamic>.from(e))).toList();
-  }
-
-  Future<Map<String, dynamic>> approvePaidSubscription(String orgId) async {
-    final res = await _api.post('/admin/paid-subscriptions/$orgId/approve');
-    return res.map;
-  }
-
-  Future<void> rejectPaidSubscription(String bookingId, {required String reason}) async {
-    await _api.post('/admin/paid-subscriptions/$bookingId/reject', body: {'reason': reason.trim()});
-  }
 }
 
 final organisationServiceProvider = Provider((ref) => OrganisationService(ref.read(apiClientProvider)));
@@ -246,10 +221,6 @@ final organisationProvider = FutureProvider.autoDispose.family<Organisation?, St
   final hit = list?.where((o) => o.id == id).firstOrNull;
   if (hit != null) return hit;
   return ref.read(organisationServiceProvider).get(id);
-});
-
-final pendingSubscriptionsProvider = FutureProvider.autoDispose<List<PendingSubscription>>((ref) {
-  return ref.read(organisationServiceProvider).pendingPaidSubscriptions();
 });
 
 final superAdminCountsProvider = FutureProvider.autoDispose<Map<String, int>>((ref) {

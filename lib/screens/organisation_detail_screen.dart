@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../core/api/api_client.dart';
 import '../core/auth/session.dart';
+import '../features/licence/confirm_payment_dialog.dart';
+import '../features/licence/licence_service.dart';
 import '../features/organisations/organisation_service.dart';
 import '../theme/colors.dart';
 
@@ -31,9 +33,7 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
     setState(() => _busy = true);
     try {
       await action();
-      ref.invalidate(organisationsProvider);
-      ref.invalidate(orgSubscriptionsProvider);
-      ref.invalidate(organisationProvider(widget.orgId));
+      _invalidateAll();
       _snack(success);
     } on ApiException catch (e) {
       _snack(e.message, error: true);
@@ -42,6 +42,37 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _invalidateAll() {
+    ref.invalidate(organisationsProvider);
+    ref.invalidate(orgSubscriptionsProvider);
+    ref.invalidate(organisationProvider(widget.orgId));
+    ref.invalidate(licenceStatusProvider(widget.orgId));
+    ref.invalidate(claimedPaymentsProvider);
+    ref.invalidate(awaitingPaymentProvider);
+    ref.invalidate(paymentHistoryProvider);
+  }
+
+  Future<void> _setSpecialPrice(Organisation org) async {
+    final v = await showSpecialPriceDialog(context, orgName: org.name, current: org.licencePrice);
+    if (v == null) return; // cancelled
+    final price = v == -1 ? null : v;
+    await _run(() => ref.read(licenceServiceProvider).setLicencePrice(org.id, price),
+        price == null ? 'Special price removed (list price applies)' : 'Special licence price set');
+  }
+
+  Future<void> _recordPayment(Organisation org, LicenceQuote? q) async {
+    if (q == null) return;
+    if (q.pendingClaim != null) {
+      final data = await showConfirmPaymentDialog(context, orgId: org.id, orgName: org.name, claim: q.pendingClaim);
+      if (data == null) return;
+    } else {
+      final data = await showConfirmPaymentDialog(context, orgId: org.id, orgName: org.name, type: q.dueType, expectedAmount: q.amountDue);
+      if (data == null) return;
+    }
+    _invalidateAll();
+    _snack('Payment confirmed. Organisation is active.');
   }
 
   Future<bool> _confirm(String title, String body, {bool danger = false}) async {
@@ -83,7 +114,7 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (!mounted) return;
-    if (!await _confirm('Pause ${org.name}?', 'Members will lose access and the subscription is suspended. On unpause the end date is extended by the paused duration.', danger: true)) return;
+    if (!await _confirm('Pause ${org.name}?', 'The organisation becomes read-only. On unpause the cloud end date is extended by the paused duration.', danger: true)) return;
     await _run(() => ref.read(organisationServiceProvider).pause(org.id, expiresAt: until), 'Organisation paused');
   }
 
@@ -91,8 +122,10 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
   Widget build(BuildContext context) {
     final orgAsync = ref.watch(organisationProvider(widget.orgId));
     final sub = ref.watch(orgSubscriptionsProvider).valueOrNull?[widget.orgId];
+    final licence = ref.watch(licenceStatusProvider(widget.orgId)).valueOrNull;
     final session = ref.watch(currentUserProvider);
     final df = DateFormat('d MMM yyyy');
+    final inr = NumberFormat.decimalPattern('en_IN');
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -141,16 +174,58 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
                 _row('Created', org.createdAt == null ? null : df.format(org.createdAt!.toLocal())),
               ]),
               const SizedBox(height: 12),
-              _section('Subscription', [
-                if (sub == null)
-                  const Text('No completed booking for this organisation.')
-                else ...[
-                  _row('Plan', sub.planLabel),
-                  _row('Status', sub.isExpired ? 'Expired' : (sub.isActive ? 'Active' : 'Inactive')),
-                  _row('Start', sub.startDate == null ? null : df.format(sub.startDate!.toLocal())),
-                  _row('End', sub.endDate == null ? null : df.format(sub.endDate!.toLocal())),
+              _section('Licence & cloud', [
+                _row('Plan', org.isLicensed ? 'diGi5S Lifetime Licence' : 'Free trial (15 days)'),
+                if (org.isLicensed) ...[
+                  _row('Licensed on', org.licencePurchasedAt == null ? null : df.format(org.licencePurchasedAt!.toLocal())),
+                  _row('Licence paid', org.licenceAmount == null ? null : '₹${inr.format(org.licenceAmount!)}'),
+                ] else
+                  _row('Licence price', '₹${inr.format(org.licencePrice ?? 10000)}${org.licencePrice != null ? ' (special price)' : ' (list price)'}'),
+                _row('Cloud charge', '₹1,000 / year${org.isLicensed ? '' : ' (first year included in the licence)'}'),
+                if (sub != null) ...[
+                  _row(org.isLicensed ? 'Cloud status' : 'Trial status', sub.isExpired ? 'Ended' : (sub.isActive ? 'Active' : 'Inactive')),
+                  _row(org.isLicensed ? 'Cloud valid till' : 'Trial ends', sub.endDate == null ? null : df.format(sub.endDate!.toLocal())),
                   _row('Days left', sub.daysLeft?.toString()),
-                  _row('Price / year', sub.pricePerYear == null ? null : '₹${sub.pricePerYear}'),
+                ],
+                if (org.isPaused) _row('Paused', org.pauseLabel),
+                if (licence != null && licence.dueType != null)
+                  _row('Due now', '${licence.dueLabel}: ₹${inr.format(licence.amountDue)}'),
+                if (licence?.pendingClaim != null)
+                  _row('Client claims', '₹${inr.format(licence!.pendingClaim!.claimedAmount ?? 0)} · ref ${licence.pendingClaim!.reference ?? '-'} (awaiting your verification)'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (!org.isLicensed)
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : () => _setSpecialPrice(org),
+                        icon: const Icon(Icons.local_offer_outlined, size: 18),
+                        label: Text(org.licencePrice == null ? 'Give discount' : 'Change special price'),
+                      ),
+                    if (licence != null && licence.dueType != null)
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
+                        onPressed: _busy ? null : () => _recordPayment(org, licence),
+                        icon: const Icon(Icons.verified_outlined, size: 18),
+                        label: Text(licence.pendingClaim != null
+                            ? 'Verify & confirm payment'
+                            : (licence.dueType == 'CLOUD_RENEWAL' ? 'Cloud payment received (+1 year)' : 'Licence payment received')),
+                      ),
+                  ],
+                ),
+                if (licence != null && licence.payments.isNotEmpty) ...[
+                  const Divider(height: 20),
+                  Text('Payments', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                  for (final p in licence.payments)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        '${p.status} · ${p.typeLabel} · ₹${inr.format(p.confirmedAmount ?? p.claimedAmount ?? p.amount)} · ref ${p.confirmedReference ?? p.reference ?? '-'}'
+                        '${p.confirmedAt != null ? ' · ${df.format(p.confirmedAt!.toLocal())}' : ''}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
                 ],
               ]),
               const SizedBox(height: 12),
@@ -174,13 +249,16 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
                       color: org.isPaused ? Colors.green : Colors.blueGrey),
                   title: Text(org.isPaused ? 'Unpause organisation' : 'Pause organisation'),
                   subtitle: Text(org.isPaused
-                      ? 'Paused ${org.pausedAt == null ? '' : df.format(org.pausedAt!.toLocal())}${org.pauseExpiresAt == null ? '' : ' · auto-unpause ${df.format(org.pauseExpiresAt!.toLocal())}'}'
-                      : 'Suspends access and the subscription clock'),
+                      ? '${org.pauseLabel} ${org.pausedAt == null ? '' : '· since ${df.format(org.pausedAt!.toLocal())}'}${org.pauseExpiresAt == null ? '' : ' · auto-unpause ${df.format(org.pauseExpiresAt!.toLocal())}'}'
+                      : 'Makes the organisation read-only until you unpause'),
                   onTap: _busy
                       ? null
                       : () async {
                           if (org.isPaused) {
-                            if (!await _confirm('Unpause ${org.name}?', 'Access is restored and the subscription end date is extended by the paused duration.')) return;
+                            final expiryPause = org.isTrialEnded || org.isCloudExpired;
+                            if (!await _confirm('Unpause ${org.name}?', expiryPause
+                                ? 'This pause was caused by an ended trial / cloud year. Unpausing does NOT extend anything: the organisation stays read-only until a payment is confirmed. Use "payment received" instead.'
+                                : 'Access is restored and the cloud end date is extended by the paused duration.')) return;
                             await _run(() => ref.read(organisationServiceProvider).unpause(org.id), 'Organisation unpaused');
                           } else {
                             await _pause(org);

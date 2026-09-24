@@ -7,6 +7,7 @@ import '../../core/auth/session.dart';
 import '../../models/zone_response.dart';
 import '../../services/zone_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 class ManageZoneScreen extends ConsumerStatefulWidget {
   const ManageZoneScreen({Key? key}) : super(key: key);
@@ -122,7 +123,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
           onPressed: () => context.go('/'),
         ),
       ),
-      floatingActionButton: isZoneMember ? null : FloatingActionButton(
+      floatingActionButton: isZoneMember || ref.watch(orgReadOnlyProvider) ? null : FloatingActionButton(
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),
         onPressed: () async {
@@ -264,7 +265,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
                   ),
                 ),
               ),
-              if (!isZoneMember)
+              if (!isZoneMember && !ref.read(orgReadOnlyProvider))
                 Row(
                   children: [
                     IconButton(

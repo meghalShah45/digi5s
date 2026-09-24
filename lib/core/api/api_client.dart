@@ -92,6 +92,18 @@ class ApiClient {
   /// Called when the server rejects the token (transport 401).
   final FutureOr<void> Function()? onUnauthorized;
 
+  /// App-wide fallback for clients built without [onUnauthorized] (e.g. services
+  /// constructed outside Riverpod). Registered once in `main()`.
+  static FutureOr<void> Function()? globalOnUnauthorized;
+
+  /// For code that calls `package:http` directly: log out on a transport 401
+  /// exactly like [ApiClient] does, then throw so the caller shows an error.
+  static Future<void> throwIfUnauthorized(http.Response res) async {
+    if (res.statusCode != 401) return;
+    await globalOnUnauthorized?.call();
+    throw const ApiException(401, 'Your session has expired. Please log in again.');
+  }
+
   Uri uri(String path, [Map<String, String?>? query]) {
     final clean = path.startsWith('/') ? path : '/$path';
     final q = query?.entries
@@ -165,7 +177,16 @@ class ApiClient {
     http.Response res;
     try {
       res = await fn().timeout(timeout ?? AppConfig.requestTimeout);
-    } on SocketException {
+    } on SocketException catch (e) {
+      // ECONNREFUSED (61 on iOS/macOS, 111 on Android/Linux): the device is online but
+      // nothing is listening at the configured API host — typically the local dev
+      // backend is not running. Say so instead of blaming the network.
+      final code = e.osError?.errorCode;
+      final refused = code == 61 || code == 111 || (e.message.toLowerCase().contains('connection refused'));
+      if (refused) {
+        final host = Uri.tryParse(AppConfig.apiBaseUrl)?.host ?? AppConfig.apiBaseUrl;
+        throw ApiException(0, 'Could not reach the server at $host. It may be down; please try again shortly.');
+      }
       throw const ApiException(0, 'No internet connection. Please check your network.');
     } on TimeoutException {
       throw const ApiException(0, 'The server took too long to respond. Please try again.');
@@ -174,7 +195,7 @@ class ApiClient {
     }
 
     if (res.statusCode == 401) {
-      await onUnauthorized?.call();
+      await (onUnauthorized ?? globalOnUnauthorized)?.call();
       throw const ApiException(401, 'Your session has expired. Please log in again.');
     }
 

@@ -6,6 +6,7 @@ import '../../../theme/colors.dart';
 import '../models/audit_statistics.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/api/api_client.dart';
 
 class AuditStatisticsScreen extends StatefulWidget {
   final String zoneId;
@@ -54,6 +55,7 @@ class _AuditStatisticsScreenState extends State<AuditStatisticsScreen> {
           'Authorization': 'Bearer ${await const FlutterSecureStorage().read(key: 'token')}',
         },
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       print('Response status code: ${response.statusCode}'); // Debug log
       print('Response body: ${response.body}'); // Debug log

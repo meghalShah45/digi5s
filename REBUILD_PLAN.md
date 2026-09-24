@@ -97,11 +97,20 @@ free-trial signup, paid signup with Razorpay, organisation pause handling, profi
 - Pending paid subscriptions: list, approve, reject.
 - Counts from `POST /dashboard/super-admin`.
 
-### Phase 6 — Onboarding and payments
-- Free trial: `POST /free-trial/start` → code → `POST /free-trial/verify` → login.
-- Paid signup: pricing → initiate → Razorpay checkout (`razorpay_flutter`) → complete → "awaiting approval".
-- Renewal for an existing org: plans → initiate → Razorpay → `checkout-renew`.
-- Note: Apple may require these purchases to happen outside the iOS app (guideline 3.1.1). Decide before submitting.
+### Phase 6 — Onboarding and payments (offline, single price — decided 2026-09-22)
+- Free trial (15 days): `POST /free-trial/start` → code → `POST /free-trial/verify` → login.
+- Lifetime licence signup: pricing → `POST /paid-subscription/register` → show offline payment instructions →
+  Seicho Consulting confirms the payment (`POST /admin/payments/confirm`) → credentials emailed.
+- Existing org (trial ended / cloud year ended → auto-paused, read-only): `GET /licence/quote` →
+  pay offline → `POST /licence/payment-claim` → super admin verifies and confirms → org reactivated.
+- Super admin: pending claims, awaiting-payment signups, double-check confirm dialog, reject, special
+  licence price per organisation, record cloud renewal (₹1,000 / year).
+- "Already registered? Complete your payment" (2026-09-24) on the Subscribe screen: email → current quote (incl.
+  special price) → Razorpay / offline details, for direct signups that left the flow or got a discount later.
+- Online payment (2026-09-23): "Pay with Razorpay" on the Licence & payment screen and on the Subscribe
+  screen after registration (`razorpay_flutter`); the server verifies the checkout signature and the payment
+  still waits for the super admin's (pre-filled, one-tap) confirmation. Apple guideline 3.1.1 (in-app purchase
+  of a service used outside the app is allowed, but confirm before submitting) — decide before the iOS release.
 
 ### Phase 7 — Release
 - Profile screen (photo, role, org, subscription, logout).
@@ -141,7 +150,10 @@ Phase 0 in full, then Phase 1, then Phase 2 and 3 feature by feature, committing
 - Verified: `test/live_api_smoke_test.dart` passes for all four roles against a local backend on a copy of the production DB.
 
 **Not started:**
-- Phase 6 (free-trial signup, Razorpay paid signup, renewal). Needs Razorpay test keys and a decision on Apple guideline 3.1.1.
+- (2026-09-23) Phase 6 rebuilt for the offline single-price model: free trial, licence signup with offline payment
+  instructions, org-admin "Licence & payment" screen (quote + submit payment details), super-admin Payments & Licences
+  screen (verify/confirm with double check, reject, awaiting registrations, history), special price and record-payment
+  actions on the organisation detail screen. Not yet exercised on the simulator (see "Blocked on the owner").
 - Phase 7 release items: profile screen, app icon / splash, store assets, Android upload key (see risk 1), iOS certificates.
 - Audit screens still use the June code paths (they work, but do not yet use `ApiClient`).
 - Steering committee screen is local-only (no backend); consider removing.

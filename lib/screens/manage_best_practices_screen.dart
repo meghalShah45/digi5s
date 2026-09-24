@@ -10,6 +10,7 @@ import '../theme/colors.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/auth/session.dart';
+import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 class BestPractice {
   final String id;
@@ -307,7 +308,7 @@ class _ManageBestPracticesScreenState extends ConsumerState<ManageBestPracticesS
                     ),
                   ],
                 ),
-      floatingActionButton: isZoneMember ? null : FloatingActionButton(
+      floatingActionButton: isZoneMember || ref.watch(orgReadOnlyProvider) ? null : FloatingActionButton(
         onPressed: () {
           _showAddBestPracticeSheet(context);
         },

@@ -5,6 +5,8 @@ import '../theme/colors.dart';
 import '../services/member_service.dart';
 import '../widgets/member_form.dart';
 import '../core/auth/session.dart';
+import '../core/api/api_client.dart';
+import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 final memberServiceProvider = Provider((ref) => MemberService());
 
@@ -80,16 +82,17 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
         );
         Navigator.pop(context); // Close the bottom sheet
       }
-    } catch (e) {
+    } on ApiException catch (e) {
       print('Error in _handleMemberSubmit: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error adding member: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      // Session is already cleared by the API client; close the sheet so the
+      // login redirect underneath is visible.
+      if (e.isUnauthorized && mounted) {
+        Navigator.pop(context);
+        return;
       }
+      // Let MemberForm show the error inline and stop its spinner
+      // (a SnackBar here would be hidden behind the bottom sheet).
+      rethrow;
     }
   }
 
@@ -179,7 +182,8 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
           onPressed: () => context.go('/manage-zone'),
         ),
       ),
-      floatingActionButton: isZoneMember ? null : FloatingActionButton(
+      // Only org admins / super admins may create members (enforced by the backend too).
+      floatingActionButton: !(userInfo?.isAdmin ?? false) || ref.watch(orgReadOnlyProvider) ? null : FloatingActionButton(
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),
         onPressed: () {
@@ -417,7 +421,7 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
                   ],
                 ),
               ),
-              if (!isZoneMember)
+              if (!isZoneMember && !ref.read(orgReadOnlyProvider))
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, color: AppColors.textLight),
                   onSelected: (value) {

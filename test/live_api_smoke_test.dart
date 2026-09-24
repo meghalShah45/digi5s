@@ -8,6 +8,7 @@ import 'package:seicho_app/core/api/api_client.dart';
 import 'package:seicho_app/core/auth/session.dart';
 import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 import 'package:seicho_app/features/flash_news/flash_news.dart';
+import 'package:seicho_app/features/licence/licence_service.dart';
 import 'package:seicho_app/features/organisations/organisation_service.dart';
 import 'package:seicho_app/features/red_tags/services/red_tag_service.dart';
 import 'package:seicho_app/features/training_material/services/training_material_service.dart';
@@ -95,9 +96,11 @@ void main() {
       final orgs = await orgSvc.list();
       final subs = await orgSvc.subscriptionsByOrg();
       final counts = await orgSvc.superAdminCounts();
-      final pending = await orgSvc.pendingPaidSubscriptions();
+      final licenceSvc = LicenceService(api);
+      final claims = await licenceSvc.payments(status: 'CLAIMED');
+      final awaiting = await licenceSvc.awaitingPayment();
       // ignore: avoid_print
-      print('super admin: ${orgs.length} orgs, ${subs.length} subscription rows, counts=$counts, pending=${pending.length}');
+      print('super admin: ${orgs.length} orgs, ${subs.length} subscription rows, counts=$counts, claims=${claims.length}, awaiting=${awaiting.length}');
       expect(orgs, isNotEmpty);
       orgId = orgs.firstWhere((o) => o.name == 'Test Org Name', orElse: () => orgs.first).id;
       final one = await orgSvc.get(orgId);
@@ -115,6 +118,12 @@ void main() {
       final mine = await TaskService(api, store).getTasksByUserId();
       // ignore: avoid_print
       print('my tasks: ${mine.length}');
+    }
+    if (session.isOrgAdmin) {
+      final quote = await LicenceService(api).quote();
+      // ignore: avoid_print
+      print('licence: plan=${quote.planCode} licensed=${quote.isLicensed} paused=${quote.isPaused}/${quote.pauseReason} due=${quote.dueType} ₹${quote.amountDue}');
+      expect(quote.orgId, orgId);
     }
   }, skip: enabled ? false : 'set LIVE_EMAIL / LIVE_PASSWORD');
 

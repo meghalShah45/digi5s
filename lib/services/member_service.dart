@@ -41,9 +41,10 @@ class MemberService {
         files: [if (file != null) ApiFile(field: 'file', path: file.path)],
       );
       return res.raw;
-    } on ApiException catch (e) {
-      // Callers show the thrown string directly.
-      throw e.message;
+    } on ApiException {
+      // Rethrow as-is so callers can react to the status (e.g. 401);
+      // ApiException.toString() is the message, so displays are unchanged.
+      rethrow;
     }
   }
 

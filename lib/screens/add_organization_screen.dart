@@ -25,11 +25,12 @@ class _AddOrganizationScreenState extends ConsumerState<AddOrganizationScreen> {
   final _addr2 = TextEditingController();
   final _gst = TextEditingController();
   final _pan = TextEditingController();
+  final _price = TextEditingController();
   bool _busy = false;
 
   @override
   void dispose() {
-    for (final c in [_name, _email, _phone, _addr1, _addr2, _gst, _pan]) {
+    for (final c in [_name, _email, _phone, _addr1, _addr2, _gst, _pan, _price]) {
       c.dispose();
     }
     super.dispose();
@@ -48,6 +49,7 @@ class _AddOrganizationScreenState extends ConsumerState<AddOrganizationScreen> {
             addressLine2: _addr2.text,
             gstNo: _gst.text,
             pancardNo: _pan.text,
+            licencePrice: num.tryParse(_price.text.trim()),
           );
       ref.invalidate(organisationsProvider);
       if (!mounted) return;
@@ -149,6 +151,19 @@ class _AddOrganizationScreenState extends ConsumerState<AddOrganizationScreen> {
             TextFormField(controller: _gst, decoration: dec('GST number'), textCapitalization: TextCapitalization.characters),
             const SizedBox(height: 14),
             TextFormField(controller: _pan, decoration: dec('PAN'), textCapitalization: TextCapitalization.characters),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _price,
+              decoration: dec('Special lifetime licence price (₹, optional)', icon: Icons.local_offer_outlined)
+                  .copyWith(helperText: 'Leave empty for the list price of ₹10,000. The client pays this amount offline.'),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (v) {
+                final s = (v ?? '').trim();
+                if (s.isEmpty) return null;
+                final n = num.tryParse(s);
+                return (n == null || n < 0) ? 'Enter a valid amount' : null;
+              },
+            ),
             const SizedBox(height: 24),
             SizedBox(
               height: 50,
@@ -161,7 +176,7 @@ class _AddOrganizationScreenState extends ConsumerState<AddOrganizationScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Text('The admin user is created automatically with a generated password.',
+            Text('The admin user is created automatically with a generated password and a 15-day free trial starts.',
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
           ],
         ),

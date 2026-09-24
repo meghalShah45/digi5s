@@ -9,6 +9,7 @@ import '../../../models/zone_response.dart';
 import '../../providers/zone_provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/config/app_config.dart';
+import '../../core/api/api_client.dart';
 
 class AuditStatisticsByZoneScreen extends ConsumerStatefulWidget {
   const AuditStatisticsByZoneScreen({Key? key}) : super(key: key);
@@ -59,6 +60,7 @@ class _AuditStatisticsByZoneScreenState extends ConsumerState<AuditStatisticsByZ
           'Authorization': 'Bearer $token',
         },
       );
+      await ApiClient.throwIfUnauthorized(response);
 
       print('Response status code: ${response.statusCode}');
       print('Response body: ${response.body}');

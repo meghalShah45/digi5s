@@ -37,10 +37,12 @@ import 'screens/splash_screen.dart';
 import 'screens/ss_training_material_screen.dart';
 import 'screens/steering_committee_screen.dart';
 import 'screens/super_admin_dashboard.dart';
+import 'screens/licence/pay_offline_screen.dart';
 import 'screens/viewer_dashboard.dart';
 import 'screens/zone_leader_dashboard.dart';
 import 'screens/zones/add_zone_screen.dart';
 import 'screens/zones/manage_zone_screen.dart';
+import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 /// Routes reachable without a session.
 const _publicRoutes = {'/intro', '/get-started', '/login', '/forgot-password', '/free-trial', '/subscribe'};
@@ -107,6 +109,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/super-admin/pending-subscriptions', builder: (_, __) => const PendingSubscriptionsScreen()),
 
+      // Licence & offline payment (org admins)
+      GoRoute(path: '/licence/pay', builder: (_, __) => const PayOfflineScreen()),
+
       // Zones & members
       GoRoute(path: '/manage-zone', builder: (_, __) => const ManageZoneScreen()),
       GoRoute(
@@ -141,8 +146,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Content
-      GoRoute(path: '/manage-manual', builder: (_, __) => const ManageManualScreen()),
-      GoRoute(path: '/manage-news', builder: (_, __) => const ManageNewsScreen()),
+      GoRoute(
+        path: '/manage-manual',
+        builder: (_, __) => Consumer(builder: (_, ref, __) => ManageManualScreen(isReadOnly: ref.watch(orgReadOnlyProvider))),
+      ),
+      GoRoute(
+        path: '/manage-news',
+        builder: (_, __) => Consumer(builder: (_, ref, __) => ManageNewsScreen(isReadOnly: ref.watch(orgReadOnlyProvider))),
+      ),
       GoRoute(path: '/what-is-news', builder: (_, __) => const ManageNewsScreen(isReadOnly: true)),
       GoRoute(path: '/manage-training-material', builder: (_, __) => const ManageTrainingMaterialScreen()),
       GoRoute(path: '/5s-training-material', builder: (_, __) => const SSTrainingMaterialScreen()),

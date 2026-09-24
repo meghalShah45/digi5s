@@ -1,69 +1,64 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../licence/licence_service.dart';
 
-/// Plan quote returned by `POST /paid-subscription/pricing`.
-class PricingQuote {
-  final String subscriptionId;
+/// Lifetime-licence quote from `POST /paid-subscription/pricing` or the result
+/// of `POST /paid-subscription/register`. Payment is OFFLINE: the client pays
+/// by bank/UPI and Seicho Consulting confirms it before the account is opened.
+class LicenceOffer {
+  final String? orgId;
   final String planName;
-  final String? description;
-  final int? membersLimit;
-  final int? adminUserLimit;
-  final num annualPrice;
-  final num onboardingFee;
-  final num total;
-  final int employeeCount;
+  final num licencePrice;
+  final num cloudPerYear;
+  final int cloudYearsIncluded;
+  final num totalAmount;
+  final String paymentInstructions;
+  final String? adminEmail;
+  final bool onlinePaymentEnabled;
+  final String? orgName;
+  final bool hasSpecialPrice;
+  final String? pendingPaymentStatus; // CLAIMED when a payment already awaits confirmation
+  final bool pendingPaymentIsOnline;
 
-  const PricingQuote({
-    required this.subscriptionId,
+  const LicenceOffer({
+    this.orgId,
     required this.planName,
-    this.description,
-    this.membersLimit,
-    this.adminUserLimit,
-    required this.annualPrice,
-    required this.onboardingFee,
-    required this.total,
-    required this.employeeCount,
+    required this.licencePrice,
+    required this.cloudPerYear,
+    required this.cloudYearsIncluded,
+    required this.totalAmount,
+    required this.paymentInstructions,
+    this.adminEmail,
+    this.onlinePaymentEnabled = false,
+    this.orgName,
+    this.hasSpecialPrice = false,
+    this.pendingPaymentStatus,
+    this.pendingPaymentIsOnline = false,
   });
 
-  factory PricingQuote.fromJson(Map<String, dynamic> j) {
-    final sub = (j['subscription'] is Map) ? Map<String, dynamic>.from(j['subscription'] as Map) : <String, dynamic>{};
-    final br = (j['breakdown'] is Map) ? Map<String, dynamic>.from(j['breakdown'] as Map) : <String, dynamic>{};
-    num n(dynamic v) => num.tryParse(v?.toString() ?? '') ?? 0;
-    return PricingQuote(
-      subscriptionId: (sub['id'] ?? '').toString(),
-      planName: (sub['name'] ?? sub['SubscriptionName'] ?? 'Subscription').toString(),
-      description: sub['description']?.toString(),
-      membersLimit: int.tryParse(sub['membersLimit']?.toString() ?? ''),
-      adminUserLimit: int.tryParse(sub['adminUserLimit']?.toString() ?? ''),
-      annualPrice: n(br['annualPrice'] ?? sub['pricePerYear']),
-      onboardingFee: n(br['onboardingFee'] ?? sub['onboardingPrice']),
-      total: n(j['totalAmount'] ?? br['total']),
-      employeeCount: int.tryParse(j['employeeCount']?.toString() ?? '') ?? 0,
+  bool get awaitingConfirmation => pendingPaymentStatus == 'CLAIMED';
+
+  factory LicenceOffer.fromJson(Map<String, dynamic> j) {
+    num n(dynamic v, num d) => num.tryParse(v?.toString() ?? '') ?? d;
+    final online = j['onlinePayment'] is Map ? Map<String, dynamic>.from(j['onlinePayment'] as Map) : const <String, dynamic>{};
+    final pending = j['pendingPayment'] is Map ? Map<String, dynamic>.from(j['pendingPayment'] as Map) : null;
+    return LicenceOffer(
+      onlinePaymentEnabled: online['enabled'] == true,
+      orgName: j['orgName']?.toString(),
+      hasSpecialPrice: j['hasSpecialPrice'] == true,
+      pendingPaymentStatus: pending?['status']?.toString(),
+      pendingPaymentIsOnline: pending?['gateway'] == 'RAZORPAY',
+      orgId: j['orgId']?.toString(),
+      planName: (j['planName'] ?? 'diGi5S Lifetime Licence').toString(),
+      licencePrice: n(j['licencePrice'], 10000),
+      cloudPerYear: n(j['cloudPerYear'], 1000),
+      cloudYearsIncluded: int.tryParse(j['cloudYearsIncluded']?.toString() ?? '') ?? 1,
+      totalAmount: n(j['totalAmount'], 10000),
+      paymentInstructions: (j['paymentInstructions'] ?? '').toString(),
+      adminEmail: j['adminEmail']?.toString(),
     );
   }
-}
-
-/// Razorpay order created by `POST /paid-subscription/payment/initiate`.
-class PaymentOrder {
-  final String bookingId;
-  final String razorpayOrderId;
-  final String razorpayKeyId;
-  final num totalAmount;
-
-  const PaymentOrder({
-    required this.bookingId,
-    required this.razorpayOrderId,
-    required this.razorpayKeyId,
-    required this.totalAmount,
-  });
-
-  factory PaymentOrder.fromJson(Map<String, dynamic> j) => PaymentOrder(
-        bookingId: (j['bookingId'] ?? '').toString(),
-        razorpayOrderId: (j['razorpayOrderId'] ?? '').toString(),
-        razorpayKeyId: (j['razorpayKeyId'] ?? '').toString(),
-        totalAmount: num.tryParse(j['totalAmount']?.toString() ?? '') ?? 0,
-      );
 }
 
 class RegistrationDetails {
@@ -72,7 +67,7 @@ class RegistrationDetails {
   final String adminName;
   final String adminPhone;
   final String adminEmail;
-  final int employeeCount;
+  final int? employeeCount; // informational only (no manpower-based pricing)
 
   const RegistrationDetails({
     required this.orgName,
@@ -80,7 +75,7 @@ class RegistrationDetails {
     required this.adminName,
     required this.adminPhone,
     required this.adminEmail,
-    required this.employeeCount,
+    this.employeeCount,
   });
 
   Map<String, dynamic> toPaidJson() => {
@@ -89,7 +84,7 @@ class RegistrationDetails {
         'adminName': adminName.trim(),
         'adminPhone': adminPhone.trim(),
         'adminEmail': adminEmail.trim().toLowerCase(),
-        'employeeCount': employeeCount,
+        if (employeeCount != null) 'employeeCount': employeeCount,
       };
 
   Map<String, dynamic> toFreeTrialJson() => {
@@ -98,7 +93,7 @@ class RegistrationDetails {
         'adminName': adminName.trim(),
         'adminPhone': adminPhone.trim(),
         'adminEmail': adminEmail.trim().toLowerCase(),
-        'numEmployees': employeeCount,
+        if (employeeCount != null) 'numEmployees': employeeCount,
       };
 }
 
@@ -121,36 +116,52 @@ class OnboardingService {
     return res.message;
   }
 
-  Future<PricingQuote> pricing(RegistrationDetails d) async {
+  /// Price preview; also checks the email/phone are not already registered.
+  Future<LicenceOffer> pricing(RegistrationDetails d) async {
     final res = await _api.post('/paid-subscription/pricing', body: d.toPaidJson());
-    return PricingQuote.fromJson(res.map);
+    return LicenceOffer.fromJson(res.map);
   }
 
-  Future<PaymentOrder> initiatePayment(RegistrationDetails d, String subscriptionId) async {
-    final res = await _api.post('/paid-subscription/payment/initiate', body: {
-      ...d.toPaidJson(),
-      'subscriptionId': subscriptionId,
-    });
-    return PaymentOrder.fromJson(res.map);
+  /// Registers the organisation (unapproved) and returns the offline payment
+  /// instructions. Login details are emailed after Seicho Consulting confirms
+  /// the payment.
+  Future<LicenceOffer> register(RegistrationDetails d) async {
+    final res = await _api.post('/paid-subscription/register', body: d.toPaidJson());
+    return LicenceOffer.fromJson(res.map);
   }
 
-  Future<Map<String, dynamic>> completePayment({
-    required String bookingId,
+  /// "Already registered?": current quote (incl. any special price) for a
+  /// direct signup that has not paid yet, found by its admin email.
+  Future<LicenceOffer> lookupRegistration(String adminEmail) async {
+    final res = await _api.post('/paid-subscription/payment/lookup', body: {'adminEmail': adminEmail.trim().toLowerCase()});
+    return LicenceOffer.fromJson(res.map);
+  }
+
+  /// Razorpay order for a freshly registered organisation (not logged in yet).
+  Future<OnlineOrder> initiateSignupPayment({required String orgId, required String adminEmail}) async {
+    final res = await _api.post('/paid-subscription/payment/initiate', body: {'orgId': orgId, 'adminEmail': adminEmail.trim().toLowerCase()});
+    return OnlineOrder.fromJson(res.map);
+  }
+
+  /// Verifies the checkout result; the super admin then confirms and the
+  /// credentials are emailed.
+  Future<OfflinePayment> completeSignupPayment({
+    required String orgId,
+    required String adminEmail,
     required String paymentId,
-    required String orderId,
-    required String signature,
-    required num amount,
-    num tax = 0,
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
   }) async {
     final res = await _api.put('/paid-subscription/payment/complete', body: {
-      'bookingId': bookingId,
-      'razorpayPaymentId': paymentId,
-      'razorpayOrderId': orderId,
-      'razorpaySignature': signature,
-      'amount': amount,
-      'tax': tax,
+      'orgId': orgId,
+      'adminEmail': adminEmail.trim().toLowerCase(),
+      'paymentId': paymentId,
+      'razorpayOrderId': razorpayOrderId,
+      'razorpayPaymentId': razorpayPaymentId,
+      'razorpaySignature': razorpaySignature,
     });
-    return res.map;
+    return OfflinePayment.fromJson(res.map);
   }
 }
 

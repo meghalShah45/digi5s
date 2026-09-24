@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../theme/colors.dart';
 import '../services/member_service.dart';
+import '../core/auth/session.dart';
+import '../core/api/api_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final memberServiceProvider = Provider((ref) => MemberService());
@@ -99,9 +101,15 @@ class _MemberFormState extends ConsumerState<MemberForm> {
     final rolesAsync = ref.watch(rolesProvider);
 
     return rolesAsync.when(
-      data: (roles) {
+      data: (allRoles) {
+        // Admin roles can't be assigned from here; members are zone-level only.
+        final roles = allRoles.where((role) {
+          final name = Roles.normalize(role['roleName']?.toString());
+          return name != Roles.superAdmin && name != Roles.orgAdmin;
+        }).toList();
+        final hasSelected = roles.any((role) => role['roleName'] == selectedRole);
         return DropdownButtonFormField<String>(
-          value: selectedRole,
+          value: hasSelected ? selectedRole : null,
           decoration: InputDecoration(
             labelText: 'Role',
             border: OutlineInputBorder(
@@ -345,7 +353,7 @@ class _MemberFormState extends ConsumerState<MemberForm> {
                         if (mounted) {
                           setState(() {
                             _isSubmitting = false;
-                            _errorMessage = e.toString();
+                            _errorMessage = e is ApiException ? e.message : e.toString();
                           });
                         }
                       }

@@ -36,7 +36,7 @@ class SuperAdminDashboard extends ConsumerWidget {
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(organisationsProvider);
-            ref.invalidate(pendingSubscriptionsProvider);
+            ref.invalidate(orgSubscriptionsProvider);
           },
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -74,10 +74,10 @@ class SuperAdminDashboard extends ConsumerWidget {
                     },
                   ),
                   _Tile(
-                    title: 'Paid\nSubscriptions\nManagement',
+                    title: 'Payments &\nLicences',
                     bg: const Color(0xFFE3F2FD),
                     fg: const Color(0xFF1565C0),
-                    icon: Icons.credit_card_outlined,
+                    icon: Icons.account_balance_wallet_outlined,
                     onTap: () => context.push('/super-admin/pending-subscriptions'),
                   ),
                   if (acting)

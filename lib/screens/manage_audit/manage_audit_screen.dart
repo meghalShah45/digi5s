@@ -10,6 +10,7 @@ import 'widgets/create_audit_sheet.dart';
 import 'widgets/audit_editor_screen.dart';
 import '../../../features/audit/screens/perform_audit_screen.dart';
 import 'audit_statistics_by_zone_screen.dart';
+import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 class ManageAuditScreen extends ConsumerStatefulWidget {
   const ManageAuditScreen({Key? key}) : super(key: key);
@@ -75,6 +76,8 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild when the organisation's read-only state changes.
+    ref.watch(orgReadOnlyProvider);
     if (!_isInitialized) {
       return const Scaffold(
         body: Center(
@@ -106,7 +109,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
           SizedBox(height: 80,)
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: ref.read(orgReadOnlyProvider) ? null : FloatingActionButton.extended(
         onPressed: () async {
           final newAuditSheet = await Navigator.push(
             context,
@@ -638,7 +641,8 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
+                      enabled: !ref.read(orgReadOnlyProvider),
                       value: 'edit',
                       child: Row(
                         children: [
@@ -648,7 +652,8 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
+                      enabled: !ref.read(orgReadOnlyProvider),
                       value: 'delete',
                       child: Row(
                         children: [

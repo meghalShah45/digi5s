@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
 import '../../../theme/colors.dart';
+import '../../../widgets/read_only_notice.dart';
 
 class MyTasksScreen extends StatefulWidget {
   const MyTasksScreen({super.key});
@@ -321,7 +322,7 @@ class _MyTasksScreenState extends State<MyTasksScreen>
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: ReadOnlyGate(builder: (context, readOnly) => ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1565C0),
                   foregroundColor: Colors.white,
@@ -329,9 +330,9 @@ class _MyTasksScreenState extends State<MyTasksScreen>
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                onPressed: () => _markAsCompleted(task.id),
+                onPressed: readOnly ? null : () => _markAsCompleted(task.id),
                 child: const Text('Mark as Completed'),
-              ),
+              )),
             ),
           ],
           if (task.status == 'PENDING_APPROVAL') ...[
