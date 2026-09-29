@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../licence/licence_service.dart';
 
-/// Lifetime-licence quote from `POST /paid-subscription/pricing` or the result
-/// of `POST /paid-subscription/register`. Payment is OFFLINE: the client pays
-/// by bank/UPI and Seicho Consulting confirms it before the account is opened.
+/// Lifetime-licence quote from `POST /paid-subscription/pricing`, the result of
+/// `POST /paid-subscription/register`, or the lookup by email. Payment is online
+/// (Razorpay); Seicho Consulting confirms it before the account is opened.
 class LicenceOffer {
   final String? orgId;
   final String planName;
@@ -13,7 +13,6 @@ class LicenceOffer {
   final num cloudPerYear;
   final int cloudYearsIncluded;
   final num totalAmount;
-  final String paymentInstructions;
   final String? adminEmail;
   final bool onlinePaymentEnabled;
   final String? orgName;
@@ -28,7 +27,6 @@ class LicenceOffer {
     required this.cloudPerYear,
     required this.cloudYearsIncluded,
     required this.totalAmount,
-    required this.paymentInstructions,
     this.adminEmail,
     this.onlinePaymentEnabled = false,
     this.orgName,
@@ -55,7 +53,6 @@ class LicenceOffer {
       cloudPerYear: n(j['cloudPerYear'], 1000),
       cloudYearsIncluded: int.tryParse(j['cloudYearsIncluded']?.toString() ?? '') ?? 1,
       totalAmount: n(j['totalAmount'], 10000),
-      paymentInstructions: (j['paymentInstructions'] ?? '').toString(),
       adminEmail: j['adminEmail']?.toString(),
     );
   }
@@ -122,9 +119,8 @@ class OnboardingService {
     return LicenceOffer.fromJson(res.map);
   }
 
-  /// Registers the organisation (unapproved) and returns the offline payment
-  /// instructions. Login details are emailed after Seicho Consulting confirms
-  /// the payment.
+  /// Registers the organisation (unapproved). The client then pays online; login
+  /// details are emailed after Seicho Consulting confirms the payment.
   Future<LicenceOffer> register(RegistrationDetails d) async {
     final res = await _api.post('/paid-subscription/register', body: d.toPaidJson());
     return LicenceOffer.fromJson(res.map);

@@ -12,7 +12,7 @@ import '../../theme/colors.dart';
 import 'registration_form.dart';
 
 /// Lifetime licence signup without a trial:
-/// register -> price -> confirm registration -> pay online (Razorpay) or offline.
+/// register -> price -> confirm registration -> pay online (Razorpay).
 /// Either way Seicho Consulting confirms the payment and emails the login details.
 class SubscribeScreen extends ConsumerStatefulWidget {
   const SubscribeScreen({super.key});
@@ -40,7 +40,7 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
   }
 
   /// "Already registered? Complete your payment": find the registration by
-  /// email and reuse the registered card (online / offline payment).
+  /// email and reuse the registered card (online payment).
   Future<void> _lookup() async {
     final email = _lookupEmail.text.trim();
     if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
@@ -81,7 +81,7 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
     } on ApiException catch (e) {
       _snack(e.message, error: true);
     } catch (_) {
-      _snack('Could not start the online payment. You can still pay offline.', error: true);
+      _snack('Could not start the payment. Please try again.', error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -269,11 +269,8 @@ class _PricingCard extends StatelessWidget {
           row('Amount payable now', _inr(offer.totalAmount), bold: true),
           const SizedBox(height: 12),
           Text(
-            offer.onlinePaymentEnabled
-                ? 'After you register you can pay online (UPI, card, net banking) or by bank transfer. '
-                    'Seicho Consulting confirms your payment and emails your login details.'
-                : 'Payment is made offline (bank transfer / UPI). After you register, we show the payment details. '
-                    'Seicho Consulting confirms your payment and emails your login details.',
+            'After you register you pay online (UPI, card, net banking or wallet, secured by Razorpay). '
+            'Seicho Consulting confirms your payment and emails your login details.',
             style: TextStyle(color: Colors.grey.shade800, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 24),
@@ -419,39 +416,17 @@ class _RegisteredCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text('UPI, cards, net banking and wallets via Razorpay.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-            const SizedBox(height: 16),
-            Row(children: [
-              const Expanded(child: Divider()),
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or pay offline', style: TextStyle(color: Colors.grey.shade600))),
-              const Expanded(child: Divider()),
-            ]),
-            const SizedBox(height: 12),
-          ],
-          const Text('How to pay offline', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade300)),
-            child: SelectableText(offer.paymentInstructions, style: const TextStyle(fontSize: 14, height: 1.5)),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: offer.paymentInstructions));
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment details copied')));
-                }
-              },
-              icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Copy details'),
+          ] else
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(14)),
+              child: const Text('Online payment is temporarily unavailable. Please try again later, or contact Seicho Consulting at digi5sapp@gmail.com.',
+                  textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
             ),
-          ),
           const SizedBox(height: 8),
           Text(
-            'These details have also been emailed to $adminEmail. Once Seicho Consulting confirms your payment, '
-            'your login details will be emailed to the same address.',
+            'Once Seicho Consulting confirms your payment, your login details will be emailed to $adminEmail. '
+            'You can also pay later: Subscribe → "Already registered? Complete your payment".',
             style: TextStyle(color: Colors.grey.shade800, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 24),

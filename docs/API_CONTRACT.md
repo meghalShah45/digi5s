@@ -343,8 +343,8 @@ Note: HTTP status is almost always **200** even for logical failures — the rea
 |---|---|---|---|---|
 | GET | `/admin/payments` | SUPER-ADMIN | query `status?` ∈ `CLAIMED\|CONFIRMED\|REJECTED` | A, `data: { payments: [OfflinePayment + orgName, orgEmail, orgPhone, confirmedByEmail, amountMismatch] }`. |
 | GET | `/admin/payments/awaiting` | SUPER-ADMIN | — | Direct signups (`approved=false`, no licence). A, `data: { organisations: [{ orgId, orgName, unitName, adminName, adminEmail, adminPhone, licencePrice, createdAt }] }`. |
-| POST | `/admin/payments/confirm` | SUPER-ADMIN | `orgId` (guid, req), `offlinePaymentId?` (guid), `type?` ∈ `LICENCE\|CLOUD_RENEWAL` (one of the two required), `amount` (req), `reference` (req), `method?`, `paidOn?`, `note?`, `confirm` (**must be `true`**) | Double verification: with a claim, `amount` + `reference` must equal the claim (`400 Verification mismatch`); always `amount` must equal the org's quote (`400 Amount mismatch`); `400 Already licensed` / `Not licensed`. Activates in one transaction (see PRICING_MODEL.md). A, `data: { orgId, orgName, type, payment, cloudValidUntil, licencePurchasedAt, credentialsEmailed }`. |
-| POST | `/admin/payments/{id}/reject` | SUPER-ADMIN | payload `reason` (req) | Claim → `REJECTED`, client emailed. A, `data: OfflinePayment`. |
+| POST | `/admin/payments/confirm` | SUPER-ADMIN | `orgId` (guid, req), `offlinePaymentId` (guid, req — the Razorpay payment record), `amount` (req), `reference` (req, Razorpay payment id), `confirm` (**must be `true`**) | Only a signature-verified Razorpay payment in `CLAIMED` can be confirmed (`400 Not verified`); `amount` + `reference` must equal it (`400 Verification mismatch`) and the org's quote (`400 Amount mismatch`); `400 Already licensed` / `Not licensed`. Activates in one transaction (see PRICING_MODEL.md). A, `data: { orgId, orgName, type, payment, cloudValidUntil, licencePurchasedAt, credentialsEmailed }`. |
+| POST | `/admin/payments/{id}/reject` | SUPER-ADMIN | payload `reason` (req) | Payment → `REJECTED`, client emailed; refund it in the Razorpay dashboard. A, `data: OfflinePayment`. |
 | PUT | `/admin/organisations/{id}/licence-price` | SUPER-ADMIN | `licencePrice` (number ≥0 or `null`) | Special price; `400` once licensed. A, `data: { orgId, licencePrice, isSpecialPrice }`. |
 | GET | `/admin/organisations/{id}/licence` | SUPER-ADMIN | guid | Same shape as `GET /licence/quote` plus `payments: [OfflinePayment]`. |
 | GET | `/admin/paid-subscriptions/pending` | SUPER-ADMIN | query `page`, `limit`, `search` | Compat: same rows as `/admin/payments/awaiting` under `data.subscriptions` (+ `status:'AWAITING_PAYMENT'`). |
@@ -355,17 +355,15 @@ Note: HTTP status is almost always **200** even for logical failures — the rea
 
 Removed: `/admin/paid-subscriptions/{orgId}/approve`, `/admin/paid-subscriptions/{bookingId}/reject`, `/approved`, `/analytics`.
 
-### `licence.js` (org admins — offline payment claims; allowed while the org is paused)
+### `licence.js` (org admins — online payment; allowed while the org is paused)
 
 | Method | Path | Auth | Payload / params | Returns |
 |---|---|---|---|---|
-| GET | `/licence/quote` | jwt: SUPER-ADMIN / ORG-ADMIN / ORGANISATION-ADMIN (own org; super admin may pass `?orgId=`) | — | A, `data: { orgId, orgName, planCode:'FREE'\|'LIFETIME', isLicensed, licencePurchasedAt, licenceAmount, licencePrice, listPrice:10000, cloudPerYear:1000, isPaused, pauseReason, approved, cloudValidUntil, isSubscriptionActive, dueType:'LICENCE'\|'CLOUD_RENEWAL'\|null, amountDue, paymentInstructions, pendingClaim }`. |
-| POST | `/licence/payment-claim` | same | `amount` (req), `reference` (3–120, req), `method` ∈ `BANK\|UPI\|CHEQUE\|CASH\|OTHER` (req), `paidOn?` (ISO, ≤ today), `note?` | Creates `OfflinePayment(CLAIMED, gateway OFFLINE)`, emails `digi5sapp@gmail.com`. `400` if nothing is due or a claim is already pending; `429` after 5 claims/hour. A 201, `data: OfflinePayment`. |
+| GET | `/licence/quote` | jwt: SUPER-ADMIN / ORG-ADMIN / ORGANISATION-ADMIN (own org; super admin may pass `?orgId=`) | — | A, `data: { orgId, orgName, planCode:'FREE'\|'LIFETIME', isLicensed, licencePurchasedAt, licenceAmount, licencePrice, listPrice:10000, cloudPerYear:1000, isPaused, pauseReason, approved, cloudValidUntil, isSubscriptionActive, dueType:'LICENCE'\|'CLOUD_RENEWAL'\|null, amountDue, pendingClaim, onlinePayment: { enabled, gateway, keyId, testMode } }`. |
 | POST | `/licence/payment/initiate` | same | `orgId?` | Razorpay order for `amountDue`. A, `data`: same shape as `/paid-subscription/payment/initiate`. `503` when Razorpay keys are not configured (`quote.onlinePayment.enabled === false`). |
 | PUT | `/licence/payment/complete` | same | `paymentId`, `razorpayOrderId`, `razorpayPaymentId`, `razorpaySignature`, `orgId?` | Signature + Razorpay verification → `CLAIMED` (`gateway:'RAZORPAY'`, `gatewayVerified`). Still needs the super admin's confirm. A, `data: OfflinePayment`. |
-| DELETE | `/licence/payment-claim/{id}` | same | guid | Withdraws a `CLAIMED` offline claim (`400` for a verified online payment). |
 
-`OfflinePayment` (both gateways): `{ id, orgId, type, gateway:'OFFLINE'\|'RAZORPAY', gatewayVerified, razorpayOrderId, razorpayPaymentId, amount, claimedAmount, reference, method, paidOn, note, status:'PENDING'\|'CLAIMED'\|'CONFIRMED'\|'REJECTED', claimedAt, confirmedAt, confirmedAmount, confirmedReference, rejectReason, createdAt }`.
+`OfflinePayment` (name predates online-only; new rows are always `gateway:'RAZORPAY'`): `{ id, orgId, type, gateway:'OFFLINE'\|'RAZORPAY', gatewayVerified, razorpayOrderId, razorpayPaymentId, amount, claimedAmount, reference, method, paidOn, note, status:'PENDING'\|'CLAIMED'\|'CONFIRMED'\|'REJECTED', claimedAt, confirmedAt, confirmedAmount, confirmedReference, rejectReason, createdAt }`.
 
 ---
 
@@ -378,11 +376,11 @@ Removed: `/admin/paid-subscriptions/{orgId}/approve`, `/admin/paid-subscriptions
 
 ---
 
-### `paidSubscription.js` (lifetime licence signup, OFFLINE payment — Razorpay removed 2026-09-22)
+### `paidSubscription.js` (lifetime licence signup, online payment via Razorpay)
 
 | Method | Path | Auth | Payload / params | Returns |
 |---|---|---|---|---|
-| POST | `/paid-subscription/pricing` | no | `orgName` (req), `unitName?`, `adminName` (req), `adminPhone` (req), `adminEmail` (email, req), `employeeCount?` (informational) | Flat price. A, `data: { planCode:'LIFETIME', planName, licencePrice:10000, cloudPerYear:1000, cloudYearsIncluded:1, totalAmount:10000, paymentInstructions, employeeCount }`. 400 if the email/phone already exists. |
+| POST | `/paid-subscription/pricing` | no | `orgName` (req), `unitName?`, `adminName` (req), `adminPhone` (req), `adminEmail` (email, req), `employeeCount?` (informational) | Flat price. A, `data: { planCode:'LIFETIME', planName, licencePrice:10000, cloudPerYear:1000, cloudYearsIncluded:1, totalAmount:10000, onlinePayment, employeeCount }`. 400 if the email/phone already exists. |
 | POST | `/paid-subscription/register` | no | same payload | Creates `Organisation(approved:false)`, `Users(role ORG-ADMIN, approved:false)` and a placeholder `OrganisationSubscription(LIFETIME, inactive, no dates)`; emails the client the payment instructions and notifies `digi5sapp@gmail.com`. A 201, `data`: same as `/pricing` + `orgId`, `adminEmail`. Activation + credentials happen when the super admin confirms the payment (`POST /admin/payments/confirm` with `type:'LICENCE'`). |
 
 | POST | `/paid-subscription/payment/lookup` | no | `adminEmail` (email) — 10 attempts / 15 min per email | "Already registered? Complete your payment". Finds a `createdBy:'licence-signup'`, unlicensed org by email. A, `data`: same shape as `/pricing` + `orgId, orgName, adminEmail, totalAmount` (= special price if set), `hasSpecialPrice`, `pendingPayment: { status, gateway, reference, claimedAt } \| null`. `404` with one generic message whether the email is unknown or already licensed. |
@@ -394,7 +392,7 @@ Removed: `/payment/status/{bookingId}`.
 
 ---
 
-### `checkout.js` — **deleted 2026-09-22** (old renewal flow). Renewals: `POST /licence/payment/initiate` (online) or an offline claim, then `POST /admin/payments/confirm` with `type:'CLOUD_RENEWAL'`.
+### `checkout.js` — **deleted 2026-09-22** (old renewal flow). Renewals: `POST /licence/payment/initiate` → Razorpay → `PUT /licence/payment/complete`, then the super admin's `POST /admin/payments/confirm`.
 
 ---
 
@@ -676,8 +674,8 @@ Practical role → capability map (derived from handlers):
 
 **Single-price model since 2026-09-22 — full description in the backend's `PRICING_MODEL.md`.** One-time
 lifetime licence ₹10,000 (includes 1 year of cloud), ₹1,000 per year cloud thereafter, 15-day free
-trial, unlimited members, no GST added. **All payments are offline**; only a SUPER-ADMIN can confirm
-one, with a double check. No Razorpay.
+trial, unlimited members, no GST added. **Payment is online only, through Razorpay** (offline / bank transfer
+removed 2026-09-29); only a SUPER-ADMIN can confirm a verified payment, with a double check.
 
 ### Plan catalogue (`Subscription` table)
 
@@ -698,38 +696,38 @@ POST /users/login        { email: adminEmail, password: <from email> }
 ```
 `POST /organisations` (super admin) creates the same thing plus an optional special `licencePrice`.
 
-### B. Trial ended / cloud year ended → auto-pause → offline payment → confirmation
+### B. Trial ended / cloud year ended → auto-pause → online payment → confirmation
 
 ```
 daily 10:00 IST   expired OrganisationSubscription → isSubscriptionActive:false,
                   Organisation.isPaused:true, pauseReason: TRIAL_ENDED | CLOUD_EXPIRED, pauseExpiresAt: null
                   (login + reads still work; every write → 403 { reason })
 org admin   GET  /licence/quote                       ← amountDue (special price / 10000 / 1000), dueType,
-                                                        paymentInstructions, pendingClaim
-            (pays offline: bank / UPI / cheque / cash)
-            POST /licence/payment-claim { amount, reference, method, paidOn, note }
-                                                      → OfflinePayment CLAIMED, email to digi5sapp@gmail.com
+                                                        pendingClaim, onlinePayment { enabled, keyId, testMode }
+            POST /licence/payment/initiate            ← Razorpay order (paymentId, razorpayOrderId, amountPaise, …)
+            (Razorpay checkout in the app)
+            PUT  /licence/payment/complete { paymentId, razorpayOrderId, razorpayPaymentId, razorpaySignature }
+                                                      → payment CLAIMED, gateway RAZORPAY, gatewayVerified
 super admin GET  /admin/payments?status=CLAIMED
             POST /admin/payments/confirm { orgId, offlinePaymentId, amount, reference, confirm:true }
-                  amount + reference must equal the claim AND the org's quote, else 400
-                  → OfflinePayment CONFIRMED (confirmedBy/At), new OrganisationSubscription(LIFETIME, +1 year),
-                    Booking(DONE) + Invoices row, Organisation licensed/renewed + approved + unpaused,
-                    receipt email (client + admin copy)
-            POST /admin/payments/{id}/reject { reason }   (client emailed, org stays paused)
+                  must be a verified Razorpay payment; amount + reference (payment id) must equal it AND the org's quote
+                  → CONFIRMED (confirmedBy/At), new OrganisationSubscription(LIFETIME, +1 year),
+                    Booking(DONE) + Invoices row, Organisation licensed/renewed + approved + unpaused
+            POST /admin/payments/{id}/reject { reason }   (client emailed, org stays paused; refund in Razorpay)
 ```
 
 ### C. Lifetime licence signup without a trial
 
 ```
 1. POST /paid-subscription/pricing   { orgName, unitName?, adminName, adminPhone, adminEmail, employeeCount? }
-      ← { totalAmount: 10000, licencePrice, cloudPerYear, paymentInstructions }
+      ← { totalAmount: 10000, licencePrice, cloudPerYear, onlinePayment }
 2. POST /paid-subscription/register  (same payload)
       → Organisation(approved:false) + Users(ORG-ADMIN, approved:false) + inactive LIFETIME subscription row
-      ← { orgId, totalAmount, paymentInstructions }   (+ email to the client with the instructions)
-3. (client pays online: POST /paid-subscription/payment/initiate → Razorpay → PUT …/complete, or offline)
+      ← { orgId, totalAmount, onlinePayment }   (+ email telling the client how to pay in the app)
+3. client pays online: POST /paid-subscription/payment/initiate → Razorpay → PUT …/complete
    Later / after a discount: Subscribe → "Already registered? Complete your payment" → POST /paid-subscription/payment/lookup { adminEmail }
-   → same online / offline options at the current (special) price
-4. super admin: GET /admin/payments (online, pre-filled) or /admin/payments/awaiting (offline walk-in) → POST /admin/payments/confirm
+   → same online payment at the current (special) price
+4. super admin: GET /admin/payments (pre-filled) → POST /admin/payments/confirm
       → org approved + licensed + cloud year 1, admin user approved, NEW password emailed
 5. POST /users/login   with the emailed credentials
 ```
@@ -741,14 +739,14 @@ isSubscriptionActive, subscriptionId, adminUserLimit, membersLimit, pricePerYear
 planCode:'FREE'|'LIFETIME', isLicensed, licencePurchasedAt, licencePrice, cloudPerYear, isPaused, pauseReason,
 dueType, amountDue, pendingClaim, cloudValidUntil }]` — active/newest row first; when there is no completed
 booking a single synthetic row with just the licence fields is returned. `GET /licence/quote` gives the same
-licence fields plus `paymentInstructions`.
+licence fields plus the Razorpay config.
 
 `GET /organisation-subscriptions` (all orgs, super admin) additionally returns computed `isFree` and `daysLeft`.
 
 ### E. Expiry & pause
 
-* Cron (`schedulerService`): 09:00 reminders (trial 7/3/1 days, cloud 30/15/7/1 days; emails carry the offline
-  payment instructions), 10:00 deactivation + auto-pause, 11:00 stats. Manual triggers under `/subscription-expiry/*` (SUPER-ADMIN).
+* Cron (`schedulerService`): 09:00 reminders (trial 7/3/1 days, cloud 30/15/7/1 days; emails tell the client
+  to pay online in the app), 10:00 deactivation + auto-pause, 11:00 stats. Manual triggers under `/subscription-expiry/*` (SUPER-ADMIN).
 * Seat limits: `membersLimit` / `adminUserLimit` are NULL (unlimited) on both plans; `isSubscriptionAllowed` still
   refuses inactive / expired subscriptions.
 * Manual pause (`PUT /organisations/{id}/pause`, SUPER-ADMIN) sets `pauseReason:'MANUAL'`; `/unpause` extends `endDate`
@@ -758,7 +756,7 @@ licence fields plus `paymentInstructions`.
 ### F. Invoices
 
 * `Invoices` table CRUD lives at `/invoices` (JWT; writes SUPER-ADMIN). A row (`status:'PAID'`) plus a `Booking(DONE,
-  transcationDetails:{ mode:'OFFLINE', amount, reference, method, paidOn, confirmedBy })` are written on every confirmed payment.
+  transcationDetails:{ mode:'RAZORPAY', razorpayOrderId, razorpayPaymentId, amount, reference, confirmedBy })` are written on every confirmed payment.
 * Dashboard PDF downloads (`/dashboard/red-tag-list/download`, `/dashboard/task-list/download`) return base64 PDFs in `data`.
 
 ---

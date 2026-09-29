@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/session.dart';
 
-/// Payment record (offline claim or verified online payment) and the super
-/// admin's confirmation.
+/// Payment record (a signature-verified Razorpay payment) and the super admin's
+/// confirmation. `OFFLINE` rows can only come from before 2026-09-29.
 class OfflinePayment {
   final String id;
   final String orgId;
@@ -62,7 +62,7 @@ class OfflinePayment {
   bool get isClaimed => status == 'CLAIMED';
   bool get isOnline => gateway == 'RAZORPAY';
   String get typeLabel => isLicence ? 'Lifetime licence' : 'Cloud renewal (1 year)';
-  String get methodLabel => isOnline ? 'Online (Razorpay)' : (paymentMethodLabels[method] ?? method ?? '');
+  String get methodLabel => isOnline ? 'Online (Razorpay)' : 'Offline (legacy)';
 
   factory OfflinePayment.fromJson(Map<String, dynamic> j) => OfflinePayment(
         id: (j['id'] ?? '').toString(),
@@ -110,7 +110,6 @@ class LicenceQuote {
   final bool isSubscriptionActive;
   final String? dueType; // LICENCE | CLOUD_RENEWAL | null
   final num amountDue;
-  final String paymentInstructions;
   final OfflinePayment? pendingClaim;
   final List<OfflinePayment> payments;
   final bool onlinePaymentEnabled;
@@ -134,7 +133,6 @@ class LicenceQuote {
     required this.isSubscriptionActive,
     this.dueType,
     required this.amountDue,
-    required this.paymentInstructions,
     this.pendingClaim,
     this.payments = const [],
     this.onlinePaymentEnabled = false,
@@ -170,7 +168,6 @@ class LicenceQuote {
       isSubscriptionActive: j['isSubscriptionActive'] == true,
       dueType: j['dueType']?.toString(),
       amountDue: num.tryParse(j['amountDue']?.toString() ?? '') ?? 0,
-      paymentInstructions: (j['paymentInstructions'] ?? '').toString(),
       pendingClaim: pending is Map ? OfflinePayment.fromJson(Map<String, dynamic>.from(pending)) : null,
       payments: payments is List
           ? payments.whereType<Map>().map((e) => OfflinePayment.fromJson(Map<String, dynamic>.from(e))).toList()
@@ -179,7 +176,7 @@ class LicenceQuote {
   }
 }
 
-/// Organisation registered directly (no trial) and waiting for its first offline payment.
+/// Organisation registered directly (no trial) that has not paid yet.
 class AwaitingPaymentOrg {
   final String orgId;
   final String orgName;
@@ -271,9 +268,8 @@ class OnlineOrder {
       };
 }
 
-/// Client + super-admin calls for the licence flow. An offline claim or a
-/// verified online (Razorpay) payment both end up waiting for the super admin's
-/// confirmation.
+/// Client + super-admin calls for the licence flow. Payment is online only
+/// (Razorpay); a verified payment waits for the super admin's confirmation.
 class LicenceService {
   LicenceService(this._api);
   final ApiClient _api;
@@ -309,28 +305,6 @@ class LicenceService {
     return LicenceQuote.fromJson(res.map);
   }
 
-  Future<OfflinePayment> submitClaim({
-    required num amount,
-    required String reference,
-    required String method,
-    DateTime? paidOn,
-    String? note,
-    String? orgId,
-  }) async {
-    final res = await _api.post('/licence/payment-claim', body: {
-      if (orgId != null) 'orgId': orgId,
-      'amount': amount,
-      'reference': reference.trim(),
-      'method': method,
-      if (paidOn != null) 'paidOn': _dateOnly(paidOn),
-      if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
-    });
-    return OfflinePayment.fromJson(res.map);
-  }
-
-  Future<void> withdrawClaim(String id, {String? orgId}) =>
-      _api.delete('/licence/payment-claim/$id', query: orgId == null ? null : {'orgId': orgId});
-
   // ---- super admin --------------------------------------------------------
 
   Future<List<OfflinePayment>> payments({String? status}) async {
@@ -347,29 +321,21 @@ class LicenceService {
     return list.whereType<Map>().map((e) => AwaitingPaymentOrg.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
-  /// Double-verified confirmation. With [offlinePaymentId] the typed [amount]
-  /// and [reference] must match the client's claim; without it (walk-in) the
-  /// amount must equal the organisation's quoted price. [confirm] must be true.
+  /// Double-verified confirmation of a verified Razorpay payment: [amount] and
+  /// [reference] (the Razorpay payment id) must match the recorded payment, and
+  /// [confirm] must be true.
   Future<Map<String, dynamic>> confirmPayment({
     required String orgId,
-    String? offlinePaymentId,
-    String? type,
+    required String offlinePaymentId,
     required num amount,
     required String reference,
-    String? method,
-    DateTime? paidOn,
-    String? note,
     required bool confirm,
   }) async {
     final res = await _api.post('/admin/payments/confirm', body: {
       'orgId': orgId,
-      if (offlinePaymentId != null) 'offlinePaymentId': offlinePaymentId,
-      if (type != null) 'type': type,
+      'offlinePaymentId': offlinePaymentId,
       'amount': amount,
       'reference': reference.trim(),
-      if (method != null) 'method': method,
-      if (paidOn != null) 'paidOn': _dateOnly(paidOn),
-      if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
       'confirm': confirm,
     });
     return res.map;
@@ -388,8 +354,6 @@ class LicenceService {
     return LicenceQuote.fromJson(res.map);
   }
 
-  static String _dateOnly(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
 final licenceServiceProvider = Provider((ref) => LicenceService(ref.read(apiClientProvider)));
@@ -418,13 +382,3 @@ final paymentHistoryProvider = FutureProvider.autoDispose<List<OfflinePayment>>(
 final awaitingPaymentProvider = FutureProvider.autoDispose<List<AwaitingPaymentOrg>>((ref) {
   return ref.read(licenceServiceProvider).awaitingPayment();
 });
-
-const paymentMethods = ['BANK', 'UPI', 'CHEQUE', 'CASH', 'OTHER'];
-const paymentMethodLabels = {
-  'BANK': 'Bank transfer (NEFT / RTGS / IMPS)',
-  'UPI': 'UPI',
-  'CHEQUE': 'Cheque',
-  'CASH': 'Cash',
-  'OTHER': 'Other',
-  'RAZORPAY': 'Online (Razorpay)',
-};

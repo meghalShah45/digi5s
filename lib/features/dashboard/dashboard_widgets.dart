@@ -74,7 +74,7 @@ class SubscriptionBanner extends ConsumerWidget {
     IconData icon = Icons.warning_amber_rounded;
 
     if (status.hasPendingClaim) {
-      text = 'Payment details submitted. Seicho Consulting is verifying the payment; your organisation is reactivated as soon as it is confirmed.';
+      text = 'Payment received. Seicho Consulting is confirming it; your organisation is reactivated as soon as it is confirmed.';
       color = Colors.blue.shade800;
       icon = Icons.hourglass_top;
       action = canPay ? 'View' : null;
@@ -86,12 +86,12 @@ class SubscriptionBanner extends ConsumerWidget {
       text = 'Your free trial has ended. You can view your data, but changes are disabled until the one-time lifetime licence$amount is paid and confirmed.';
       color = Colors.red.shade700;
       icon = Icons.error_outline;
-      action = canPay ? 'Pay & submit details' : null;
+      action = canPay ? 'Pay now' : null;
     } else if (status.isCloudExpired) {
       text = 'The yearly cloud charge$amount is due. You can view your data, but changes are disabled until the payment is confirmed.';
       color = Colors.red.shade700;
       icon = Icons.cloud_off_outlined;
-      action = canPay ? 'Pay & submit details' : null;
+      action = canPay ? 'Pay now' : null;
     } else if (!status.exists) {
       text = 'No active subscription found for your organisation. The app is read-only until a subscription is active.';
     } else if (status.looksPaused) {
@@ -104,7 +104,7 @@ class SubscriptionBanner extends ConsumerWidget {
       text = status.isFree
           ? 'Your free trial ends in $days (${_fmt(status.endDate)}). Activate the lifetime licence$amount to continue without interruption.'
           : 'Your yearly cloud service ends in $days (${_fmt(status.endDate)}). Cloud charge$amount due.';
-      action = canPay ? 'Pay & submit details' : null;
+      action = canPay ? 'Pay now' : null;
     }
     if (text == null) return const SizedBox.shrink();
 

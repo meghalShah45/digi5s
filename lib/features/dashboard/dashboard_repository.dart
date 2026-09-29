@@ -51,8 +51,8 @@ class DashboardCounts {
 ///
 /// Since the single-price model (Sept 2026) the row also carries the licence
 /// state: `planCode` (FREE trial / LIFETIME licence), `isPaused` + `pauseReason`
-/// (TRIAL_ENDED / CLOUD_EXPIRED / MANUAL), what is due and any pending offline
-/// payment claim.
+/// (TRIAL_ENDED / CLOUD_EXPIRED / MANUAL), what is due and any payment awaiting
+/// confirmation.
 class SubscriptionStatus {
   final bool exists;
   final bool isActive;

@@ -62,15 +62,11 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
         price == null ? 'Special price removed (list price applies)' : 'Special licence price set');
   }
 
-  Future<void> _recordPayment(Organisation org, LicenceQuote? q) async {
-    if (q == null) return;
-    if (q.pendingClaim != null) {
-      final data = await showConfirmPaymentDialog(context, orgId: org.id, orgName: org.name, claim: q.pendingClaim);
-      if (data == null) return;
-    } else {
-      final data = await showConfirmPaymentDialog(context, orgId: org.id, orgName: org.name, type: q.dueType, expectedAmount: q.amountDue);
-      if (data == null) return;
-    }
+  Future<void> _confirmPending(Organisation org, LicenceQuote? q) async {
+    final claim = q?.pendingClaim;
+    if (claim == null) return;
+    final data = await showConfirmPaymentDialog(context, orgId: org.id, orgName: org.name, claim: claim);
+    if (data == null) return;
     _invalidateAll();
     _snack('Payment confirmed. Organisation is active.');
   }
@@ -203,14 +199,12 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
                         icon: const Icon(Icons.local_offer_outlined, size: 18),
                         label: Text(org.licencePrice == null ? 'Give discount' : 'Change special price'),
                       ),
-                    if (licence != null && licence.dueType != null)
+                    if (licence?.pendingClaim != null)
                       FilledButton.icon(
                         style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
-                        onPressed: _busy ? null : () => _recordPayment(org, licence),
+                        onPressed: _busy ? null : () => _confirmPending(org, licence),
                         icon: const Icon(Icons.verified_outlined, size: 18),
-                        label: Text(licence.pendingClaim != null
-                            ? 'Verify & confirm payment'
-                            : (licence.dueType == 'CLOUD_RENEWAL' ? 'Cloud payment received (+1 year)' : 'Licence payment received')),
+                        label: const Text('Verify & confirm payment'),
                       ),
                   ],
                 ),

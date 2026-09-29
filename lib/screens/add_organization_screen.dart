@@ -155,7 +155,7 @@ class _AddOrganizationScreenState extends ConsumerState<AddOrganizationScreen> {
             TextFormField(
               controller: _price,
               decoration: dec('Special lifetime licence price (₹, optional)', icon: Icons.local_offer_outlined)
-                  .copyWith(helperText: 'Leave empty for the list price of ₹10,000. The client pays this amount offline.'),
+                  .copyWith(helperText: 'Leave empty for the list price of ₹10,000. The client pays this amount online in the app.'),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               validator: (v) {
                 final s = (v ?? '').trim();

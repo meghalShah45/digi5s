@@ -8,9 +8,9 @@ import '../features/licence/licence_service.dart';
 import '../features/organisations/organisation_service.dart';
 import '../theme/colors.dart';
 
-/// Super admin: offline payments.
-///   To verify  - payment details submitted by clients (confirm / reject)
-///   Awaiting   - organisations registered directly, no payment yet (walk-in confirm)
+/// Super admin: Razorpay payments.
+///   To verify  - signature-verified Razorpay payments (confirm / reject)
+///   Awaiting   - organisations registered directly that have not paid yet (read-only)
 ///   History    - confirmed / rejected payments
 class PendingSubscriptionsScreen extends ConsumerStatefulWidget {
   const PendingSubscriptionsScreen({super.key});
@@ -48,13 +48,6 @@ class _PendingSubscriptionsScreenState extends ConsumerState<PendingSubscription
     _snack(data['credentialsEmailed'] == true
         ? 'Payment confirmed. Organisation activated and login details emailed.'
         : 'Payment confirmed. Organisation activated.');
-    await _refresh();
-  }
-
-  Future<void> _walkIn(AwaitingPaymentOrg o) async {
-    final data = await showConfirmPaymentDialog(context, orgId: o.orgId, orgName: o.orgName, type: 'LICENCE', expectedAmount: o.licencePrice);
-    if (data == null) return;
-    _snack('Payment confirmed. Organisation activated and login details emailed.');
     await _refresh();
   }
 
@@ -113,7 +106,7 @@ class _PendingSubscriptionsScreenState extends ConsumerState<PendingSubscription
         body: TabBarView(
           children: [
             _ClaimsTab(onConfirm: _confirmClaim, onReject: _reject, busyId: _busyId, onRefresh: _refresh),
-            _AwaitingTab(onConfirm: _walkIn, onRefresh: _refresh),
+            _AwaitingTab(onRefresh: _refresh),
             _HistoryTab(onRefresh: _refresh),
           ],
         ),
@@ -184,7 +177,6 @@ class _ClaimsTab extends ConsumerWidget {
                         if (p.isOnline) _chip(p.gatewayVerified ? 'Razorpay · verified' : 'Razorpay', Colors.green.shade800),
                         _chip('${p.isOnline ? 'Paid' : 'Claimed'} ₹${_inr(p.claimedAmount ?? p.amount)}', p.amountMismatch ? Colors.red : Colors.green),
                         if (p.amountMismatch) _chip('Due ₹${_inr(p.amount)}', Colors.red),
-                        if (!p.isOnline) _chip(paymentMethodLabels[p.method] ?? p.method ?? '', Colors.teal),
                         if (p.paidOn != null) _chip('Paid ${df.format(p.paidOn!.toLocal())}', Colors.grey),
                       ]),
                       const SizedBox(height: 6),
@@ -223,8 +215,7 @@ class _ClaimsTab extends ConsumerWidget {
 }
 
 class _AwaitingTab extends ConsumerWidget {
-  const _AwaitingTab({required this.onConfirm, required this.onRefresh});
-  final Future<void> Function(AwaitingPaymentOrg) onConfirm;
+  const _AwaitingTab({required this.onRefresh});
   final Future<void> Function() onRefresh;
 
   @override
@@ -261,19 +252,9 @@ class _AwaitingTab extends ConsumerWidget {
                         if (o.createdAt != null) _chip('Registered ${df.format(o.createdAt!.toLocal())}', Colors.grey),
                       ]),
                       const SizedBox(height: 6),
-                      Text('Registered in the app without a trial. Confirm once the ₹${_inr(o.licencePrice)} payment is in the bank account; '
-                          'the organisation is then activated and the login details are emailed.',
+                      Text('Registered in the app without a trial and not paid yet. Once they pay ₹${_inr(o.licencePrice)} online, '
+                          'the payment appears under "To verify" for you to confirm.',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
-                          onPressed: () => onConfirm(o),
-                          icon: const Icon(Icons.verified_outlined, size: 18),
-                          label: const Text('Payment received - activate'),
-                        ),
-                      ),
                     ],
                   ),
                 ),

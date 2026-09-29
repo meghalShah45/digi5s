@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
@@ -9,33 +8,23 @@ import '../../features/dashboard/dashboard_repository.dart';
 import '../../features/licence/licence_service.dart';
 import '../../theme/colors.dart';
 
-/// Organisation admin: what is due (lifetime licence or yearly cloud charge),
-/// pay online through Razorpay or offline with the "I have paid" form. Either
-/// way the organisation stays read-only until Seicho Consulting confirms the
-/// payment (an online payment is already signature-verified, so that is one tap).
-class PayOfflineScreen extends ConsumerStatefulWidget {
-  const PayOfflineScreen({super.key});
+/// Organisation admin: what is due (lifetime licence or yearly cloud charge)
+/// and the Razorpay payment. Payment is online only; the organisation stays
+/// read-only until Seicho Consulting confirms the verified payment.
+class LicencePaymentScreen extends ConsumerStatefulWidget {
+  const LicencePaymentScreen({super.key});
 
   @override
-  ConsumerState<PayOfflineScreen> createState() => _PayOfflineScreenState();
+  ConsumerState<LicencePaymentScreen> createState() => _LicencePaymentScreenState();
 }
 
-class _PayOfflineScreenState extends ConsumerState<PayOfflineScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _amount = TextEditingController();
-  final _reference = TextEditingController();
-  final _note = TextEditingController();
-  String _method = 'BANK';
-  DateTime _paidOn = DateTime.now();
+class _LicencePaymentScreenState extends ConsumerState<LicencePaymentScreen> {
   bool _busy = false;
   Razorpay? _razorpay;
   OnlineOrder? _order;
 
   @override
   void dispose() {
-    _amount.dispose();
-    _reference.dispose();
-    _note.dispose();
     _razorpay?.clear();
     super.dispose();
   }
@@ -53,7 +42,7 @@ class _PayOfflineScreenState extends ConsumerState<PayOfflineScreen> {
     } on ApiException catch (e) {
       _snack(e.message, error: true);
     } catch (_) {
-      _snack('Could not start the online payment. Please try again or pay offline.', error: true);
+      _snack('Could not start the payment. Please try again.', error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -96,68 +85,6 @@ class _PayOfflineScreenState extends ConsumerState<PayOfflineScreen> {
     await ref.read(licenceQuoteProvider.future).catchError((_) => null);
   }
 
-  Future<void> _submit(LicenceQuote q) async {
-    if (!_formKey.currentState!.validate()) return;
-    FocusScope.of(context).unfocus();
-    final amount = num.parse(_amount.text.trim());
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Submit payment details?'),
-        content: Text('Amount ₹${_inr(amount)} · ${paymentMethodLabels[_method]}\nReference: ${_reference.text.trim()}\n\n'
-            'Seicho Consulting will verify this against the bank account before activating your organisation.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Submit')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    setState(() => _busy = true);
-    try {
-      await ref.read(licenceServiceProvider).submitClaim(
-            amount: amount,
-            reference: _reference.text,
-            method: _method,
-            paidOn: _paidOn,
-            note: _note.text,
-          );
-      _snack('Payment details submitted. You will be notified once the payment is confirmed.');
-      await _refresh();
-    } on ApiException catch (e) {
-      _snack(e.message, error: true);
-    } catch (_) {
-      _snack('Could not submit the payment details. Please try again.', error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _withdraw(OfflinePayment claim) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Withdraw payment details?'),
-        content: const Text('You can submit them again afterwards.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep')),
-          FilledButton(style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700), onPressed: () => Navigator.pop(ctx, true), child: const Text('Withdraw')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    setState(() => _busy = true);
-    try {
-      await ref.read(licenceServiceProvider).withdrawClaim(claim.id);
-      _snack('Payment details withdrawn');
-      await _refresh();
-    } on ApiException catch (e) {
-      _snack(e.message, error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(licenceQuoteProvider);
@@ -180,28 +107,24 @@ class _PayOfflineScreenState extends ConsumerState<PayOfflineScreen> {
           ]),
           data: (q) {
             if (q == null) return const Center(child: Text('No organisation on this account'));
-            if (_amount.text.isEmpty && q.amountDue > 0) _amount.text = q.amountDue.toStringAsFixed(0);
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 _StatusCard(q: q),
                 const SizedBox(height: 12),
                 if (q.pendingClaim != null)
-                  _PendingClaimCard(claim: q.pendingClaim!, busy: _busy, onWithdraw: () => _withdraw(q.pendingClaim!))
+                  _PendingClaimCard(claim: q.pendingClaim!)
                 else if (q.somethingDue) ...[
-                  if (q.onlinePaymentEnabled) ...[
-                    _OnlinePayCard(q: q, busy: _busy, onPay: _payOnline),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      const Expanded(child: Divider()),
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or pay offline', style: TextStyle(color: Colors.grey.shade600))),
-                      const Expanded(child: Divider()),
-                    ]),
-                    const SizedBox(height: 12),
-                  ],
-                  _InstructionsCard(q: q),
-                  const SizedBox(height: 12),
-                  _claimForm(q),
+                  if (q.onlinePaymentEnabled)
+                    _OnlinePayCard(q: q, busy: _busy, onPay: _payOnline)
+                  else
+                    Card(
+                      child: ListTile(
+                        leading: Icon(Icons.info_outline, color: Colors.orange.shade800),
+                        title: const Text('Online payment is temporarily unavailable'),
+                        subtitle: const Text('Please try again later, or contact Seicho Consulting at digi5sapp@gmail.com.'),
+                      ),
+                    ),
                 ] else
                   Card(
                     child: ListTile(
@@ -220,83 +143,6 @@ class _PayOfflineScreenState extends ConsumerState<PayOfflineScreen> {
               ],
             );
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _claimForm(LicenceQuote q) {
-    InputDecoration dec(String l, {String? hint}) => InputDecoration(
-        labelText: l, hintText: hint, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), isDense: true);
-    final df = DateFormat('d MMM yyyy');
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('I have paid - submit the details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('Seicho Consulting checks these against the bank account and then activates your organisation.',
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _amount,
-                decoration: dec('Amount paid (₹)'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) {
-                  final n = num.tryParse((v ?? '').trim());
-                  if (n == null || n <= 0) return 'Enter the amount paid';
-                  if ((n - q.amountDue).abs() > 0.01) return 'Amount due is ₹${_inr(q.amountDue)}';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                value: _method,
-                decoration: dec('Payment method'),
-                items: [for (final m in paymentMethods) DropdownMenuItem(value: m, child: Text(paymentMethodLabels[m] ?? m))],
-                onChanged: (v) => setState(() => _method = v ?? 'BANK'),
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _reference,
-                decoration: dec('Reference / UTR / cheque no.', hint: 'As shown in your bank app'),
-                textCapitalization: TextCapitalization.characters,
-                validator: (v) => (v ?? '').trim().length < 3 ? 'Enter the payment reference' : null,
-              ),
-              const SizedBox(height: 10),
-              InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () async {
-                  final d = await showDatePicker(
-                    context: context,
-                    initialDate: _paidOn,
-                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                    lastDate: DateTime.now(),
-                  );
-                  if (d != null) setState(() => _paidOn = d);
-                },
-                child: InputDecorator(
-                  decoration: dec('Paid on'),
-                  child: Text(df.format(_paidOn)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextFormField(controller: _note, decoration: dec('Note (optional)'), maxLines: 2),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(backgroundColor: AppColors.primary, minimumSize: const Size.fromHeight(50)),
-                onPressed: _busy ? null : () => _submit(q),
-                icon: _busy
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.send_outlined),
-                label: const Text('Submit payment details'),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -407,49 +253,9 @@ class _OnlinePayCard extends StatelessWidget {
   }
 }
 
-class _InstructionsCard extends StatelessWidget {
-  const _InstructionsCard({required this.q});
-  final LicenceQuote q;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: AppColors.primary.withOpacity(0.05),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(Icons.account_balance_outlined, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Expanded(child: Text('Pay ₹${_inr(q.amountDue)} offline', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-            ]),
-            const SizedBox(height: 10),
-            SelectableText(q.paymentInstructions, style: const TextStyle(height: 1.5)),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: q.paymentInstructions));
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment details copied')));
-                },
-                icon: const Icon(Icons.copy, size: 18),
-                label: const Text('Copy details'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _PendingClaimCard extends StatelessWidget {
-  const _PendingClaimCard({required this.claim, required this.busy, required this.onWithdraw});
+  const _PendingClaimCard({required this.claim});
   final OfflinePayment claim;
-  final bool busy;
-  final VoidCallback onWithdraw;
 
   @override
   Widget build(BuildContext context) {
@@ -476,11 +282,6 @@ class _PendingClaimCard extends StatelessWidget {
                 ? 'Your online payment was verified. Seicho Consulting confirms it and your organisation is reactivated automatically.'
                 : 'Seicho Consulting is verifying this payment. Your organisation is reactivated automatically once it is confirmed.',
                 style: const TextStyle(fontSize: 13)),
-            if (!claim.isOnline)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(onPressed: busy ? null : onWithdraw, child: const Text('Withdraw and resubmit')),
-              ),
           ],
         ),
       ),

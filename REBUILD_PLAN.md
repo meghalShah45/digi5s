@@ -23,7 +23,7 @@ red tag list view, viewer dashboard.
 logout, forgot/reset password, home dashboard counts, subscription status and renewal, org-admin member management
 (list / deactivate / reset password), red tag approval by admins, task status flow (work-in-progress / completed with proof),
 audit score view (last 6 months), zone scores, super-admin org approvals and paid-subscription approvals,
-free-trial signup, paid signup with Razorpay, organisation pause handling, profile screen.
+free-trial signup, paid signup with Razorpay, organisation pause handling.
 
 **Must be fixed before any store build:**
 - API base URL hardcoded to `http://localhost:8081` in 22 places.
@@ -97,23 +97,22 @@ free-trial signup, paid signup with Razorpay, organisation pause handling, profi
 - Pending paid subscriptions: list, approve, reject.
 - Counts from `POST /dashboard/super-admin`.
 
-### Phase 6 — Onboarding and payments (offline, single price — decided 2026-09-22)
+### Phase 6 — Onboarding and payments (single price, online payment via Razorpay)
 - Free trial (15 days): `POST /free-trial/start` → code → `POST /free-trial/verify` → login.
-- Lifetime licence signup: pricing → `POST /paid-subscription/register` → show offline payment instructions →
-  Seicho Consulting confirms the payment (`POST /admin/payments/confirm`) → credentials emailed.
-- Existing org (trial ended / cloud year ended → auto-paused, read-only): `GET /licence/quote` →
-  pay offline → `POST /licence/payment-claim` → super admin verifies and confirms → org reactivated.
-- Super admin: pending claims, awaiting-payment signups, double-check confirm dialog, reject, special
-  licence price per organisation, record cloud renewal (₹1,000 / year).
-- "Already registered? Complete your payment" (2026-09-24) on the Subscribe screen: email → current quote (incl.
-  special price) → Razorpay / offline details, for direct signups that left the flow or got a discount later.
-- Online payment (2026-09-23): "Pay with Razorpay" on the Licence & payment screen and on the Subscribe
-  screen after registration (`razorpay_flutter`); the server verifies the checkout signature and the payment
-  still waits for the super admin's (pre-filled, one-tap) confirmation. Apple guideline 3.1.1 (in-app purchase
-  of a service used outside the app is allowed, but confirm before submitting) — decide before the iOS release.
+- Lifetime licence signup: pricing → `POST /paid-subscription/register` → pay online (Razorpay) → Seicho Consulting
+  confirms the payment (`POST /admin/payments/confirm`) → credentials emailed.
+- "Already registered? Complete your payment" on the Subscribe screen: email → current quote (incl. special
+  price) → Razorpay, for direct signups that left the flow or got a discount later.
+- Existing org (trial ended / cloud year ended → auto-paused, read-only): banner "Pay now" → Licence & payment screen
+  → Razorpay → super admin confirms (pre-filled, one tap) → org reactivated.
+- Super admin: payments to verify, registrations not paid yet (read-only), history, reject, special licence price per
+  organisation.
+- Offline / bank-transfer payment and the manual "payment received" record were removed on 2026-09-29: every
+  activation comes from a Razorpay payment. Razorpay runs on iOS too; the owner accepts the App Store review risk
+  (guideline 3.1.1). If Apple rejects it, hide payment on iOS and resubmit.
 
 ### Phase 7 — Release
-- Profile screen (photo, role, org, subscription, logout).
+- Profile screen: dropped (owner decision 2026-09-29, not building it).
 - App icon and splash, store screenshots.
 - Android: new upload key if the old one is gone (see risk below). iOS: regenerate certificates and profiles.
 - Smoke test every role against production with test accounts.
@@ -150,11 +149,11 @@ Phase 0 in full, then Phase 1, then Phase 2 and 3 feature by feature, committing
 - Verified: `test/live_api_smoke_test.dart` passes for all four roles against a local backend on a copy of the production DB.
 
 **Not started:**
-- (2026-09-23) Phase 6 rebuilt for the offline single-price model: free trial, licence signup with offline payment
+- (2026-09-23, online-only since 2026-09-29) Phase 6 rebuilt for the single-price model: free trial, licence signup with online payment
   instructions, org-admin "Licence & payment" screen (quote + submit payment details), super-admin Payments & Licences
   screen (verify/confirm with double check, reject, awaiting registrations, history), special price and record-payment
   actions on the organisation detail screen. Not yet exercised on the simulator (see "Blocked on the owner").
-- Phase 7 release items: profile screen, app icon / splash, store assets, Android upload key (see risk 1), iOS certificates.
+- Phase 7 release items: app icon / splash, store assets, Android upload key (see risk 1), iOS certificates.
 - Audit screens still use the June code paths (they work, but do not yet use `ApiClient`).
 - Steering committee screen is local-only (no backend); consider removing.
 

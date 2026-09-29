@@ -37,7 +37,7 @@ import 'screens/splash_screen.dart';
 import 'screens/ss_training_material_screen.dart';
 import 'screens/steering_committee_screen.dart';
 import 'screens/super_admin_dashboard.dart';
-import 'screens/licence/pay_offline_screen.dart';
+import 'screens/licence/licence_payment_screen.dart';
 import 'screens/viewer_dashboard.dart';
 import 'screens/zone_leader_dashboard.dart';
 import 'screens/zones/add_zone_screen.dart';
@@ -109,8 +109,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/super-admin/pending-subscriptions', builder: (_, __) => const PendingSubscriptionsScreen()),
 
-      // Licence & offline payment (org admins)
-      GoRoute(path: '/licence/pay', builder: (_, __) => const PayOfflineScreen()),
+      // Licence & payment (org admins, Razorpay)
+      GoRoute(path: '/licence/pay', builder: (_, __) => const LicencePaymentScreen()),
 
       // Zones & members
       GoRoute(path: '/manage-zone', builder: (_, __) => const ManageZoneScreen()),

@@ -6,36 +6,32 @@ import '../../core/api/api_client.dart';
 import '../../theme/colors.dart';
 import 'licence_service.dart';
 
-/// Super admin: double-verified confirmation of an offline payment.
+/// Super admin: double-verified confirmation of a Razorpay payment.
 ///
-/// With a [claim] the super admin re-types the amount and reference, which the
-/// backend compares with what the client submitted. Without a claim (walk-in)
-/// the amount must equal the organisation's quoted price. Either way the
-/// "I have verified this payment in the bank account" box must be ticked.
+/// The payment is already signature-verified by the server. The dialog is
+/// pre-filled with the amount and the Razorpay payment id (the backend checks
+/// both against the recorded payment), and the "I have verified this payment
+/// in Razorpay" box must be ticked before anything is activated.
 ///
 /// Returns the backend's confirmation data, or null when cancelled.
 Future<Map<String, dynamic>?> showConfirmPaymentDialog(
   BuildContext context, {
   required String orgId,
   required String orgName,
-  OfflinePayment? claim,
-  String? type, // LICENCE | CLOUD_RENEWAL (walk-in)
-  num? expectedAmount, // walk-in: what the organisation owes
+  required OfflinePayment claim,
 }) {
   return showDialog<Map<String, dynamic>>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => _ConfirmPaymentDialog(orgId: orgId, orgName: orgName, claim: claim, type: type, expectedAmount: expectedAmount),
+    builder: (_) => _ConfirmPaymentDialog(orgId: orgId, orgName: orgName, claim: claim),
   );
 }
 
 class _ConfirmPaymentDialog extends ConsumerStatefulWidget {
-  const _ConfirmPaymentDialog({required this.orgId, required this.orgName, this.claim, this.type, this.expectedAmount});
+  const _ConfirmPaymentDialog({required this.orgId, required this.orgName, required this.claim});
   final String orgId;
   final String orgName;
-  final OfflinePayment? claim;
-  final String? type;
-  final num? expectedAmount;
+  final OfflinePayment claim;
 
   @override
   ConsumerState<_ConfirmPaymentDialog> createState() => _ConfirmPaymentDialogState();
@@ -43,17 +39,8 @@ class _ConfirmPaymentDialog extends ConsumerStatefulWidget {
 
 class _ConfirmPaymentDialogState extends ConsumerState<_ConfirmPaymentDialog> {
   final _formKey = GlobalKey<FormState>();
-  // Walk-in: pre-fill the quoted amount. Verified online payment: pre-fill both
-  // amount and Razorpay payment id (they are server-known), so confirming is one tap.
-  late final _amount = TextEditingController(
-      text: widget.claim != null && widget.claim!.isOnline && widget.claim!.gatewayVerified
-          ? (widget.claim!.claimedAmount ?? widget.claim!.amount).toStringAsFixed(0)
-          : (widget.claim == null && widget.expectedAmount != null ? widget.expectedAmount!.toStringAsFixed(0) : ''));
-  late final _reference = TextEditingController(
-      text: widget.claim != null && widget.claim!.isOnline && widget.claim!.gatewayVerified ? (widget.claim!.reference ?? '') : '');
-  final _note = TextEditingController();
-  String _method = 'BANK';
-  DateTime _paidOn = DateTime.now();
+  late final _amount = TextEditingController(text: (widget.claim.claimedAmount ?? widget.claim.amount).toStringAsFixed(0));
+  late final _reference = TextEditingController(text: widget.claim.reference ?? '');
   bool _verified = false;
   bool _busy = false;
   String? _error;
@@ -62,33 +49,23 @@ class _ConfirmPaymentDialogState extends ConsumerState<_ConfirmPaymentDialog> {
   void dispose() {
     _amount.dispose();
     _reference.dispose();
-    _note.dispose();
     super.dispose();
-  }
-
-  String get _typeLabel {
-    final t = widget.claim?.type ?? widget.type;
-    return t == 'CLOUD_RENEWAL' ? 'Cloud renewal (1 year, ₹1,000)' : 'Lifetime licence';
   }
 
   Future<void> _confirm() async {
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
     if (!_verified) {
-      setState(() => _error = 'Tick the box to confirm you have verified the payment in the bank account.');
+      setState(() => _error = 'Tick the box to confirm you have checked this payment in Razorpay.');
       return;
     }
     setState(() => _busy = true);
     try {
       final data = await ref.read(licenceServiceProvider).confirmPayment(
             orgId: widget.orgId,
-            offlinePaymentId: widget.claim?.id,
-            type: widget.claim == null ? widget.type : null,
+            offlinePaymentId: widget.claim.id,
             amount: num.parse(_amount.text.trim()),
             reference: _reference.text,
-            method: widget.claim == null ? _method : null,
-            paidOn: widget.claim == null ? _paidOn : null,
-            note: widget.claim == null ? _note.text : null,
             confirm: true,
           );
       if (mounted) Navigator.pop(context, data);
@@ -106,8 +83,8 @@ class _ConfirmPaymentDialogState extends ConsumerState<_ConfirmPaymentDialog> {
     final claim = widget.claim;
     final df = DateFormat('d MMM yyyy');
     final inr = NumberFormat.decimalPattern('en_IN');
-    InputDecoration dec(String l, {String? hint}) => InputDecoration(
-        labelText: l, hintText: hint, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), isDense: true);
+    InputDecoration dec(String l) =>
+        InputDecoration(labelText: l, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), isDense: true);
 
     return AlertDialog(
       title: Text('Confirm payment - ${widget.orgName}'),
@@ -118,35 +95,28 @@ class _ConfirmPaymentDialogState extends ConsumerState<_ConfirmPaymentDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(_typeLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(claim.typeLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              if (claim != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: claim.isOnline ? Colors.green.shade50 : Colors.blue.shade50, borderRadius: BorderRadius.circular(10)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(claim.isOnline ? 'Paid online via Razorpay${claim.gatewayVerified ? ' - signature verified' : ''}' : 'Client submitted',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                      Text('₹${inr.format(claim.claimedAmount ?? claim.amount)} · ${claim.methodLabel}'),
-                      Text('${claim.isOnline ? 'Payment id' : 'Ref'} ${claim.reference ?? '-'}${claim.paidOn == null ? '' : ' · paid ${df.format(claim.paidOn!.toLocal())}'}'),
-                      if (claim.razorpayOrderId != null) Text('Order ${claim.razorpayOrderId}', style: const TextStyle(fontSize: 11)),
-                      if (!claim.isOnline && claim.note != null && claim.note!.isNotEmpty) Text('Note: ${claim.note}', style: const TextStyle(fontSize: 12)),
-                      if (claim.amountMismatch)
-                        Text('⚠ Amount due is ₹${inr.format(claim.amount)}', style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
-                    ],
-                  ),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Paid online via Razorpay${claim.gatewayVerified ? ' - signature verified' : ''}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    Text('₹${inr.format(claim.claimedAmount ?? claim.amount)} · ${claim.methodLabel}'),
+                    Text('Payment id ${claim.reference ?? '-'}${claim.paidOn == null ? '' : ' · paid ${df.format(claim.paidOn!.toLocal())}'}'),
+                    if (claim.razorpayOrderId != null) Text('Order ${claim.razorpayOrderId}', style: const TextStyle(fontSize: 11)),
+                    if (claim.amountMismatch)
+                      Text('⚠ Amount due is ₹${inr.format(claim.amount)}',
+                          style: TextStyle(color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                Text(claim.isOnline
-                    ? 'Razorpay already verified this payment. Check it in your Razorpay dashboard or bank settlement, then confirm.'
-                    : 'Re-enter the amount and reference exactly as they appear in the bank statement. They must match the client\'s entry.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-              ] else
-                Text('Record a payment received outside the app. The amount must equal what this organisation owes'
-                    '${widget.expectedAmount == null ? '' : ' (₹${inr.format(widget.expectedAmount!)})'}.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+              ),
+              const SizedBox(height: 10),
+              Text('Check this payment in your Razorpay dashboard, then confirm. The amount and payment id must match the recorded payment.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _amount,
@@ -157,45 +127,16 @@ class _ConfirmPaymentDialogState extends ConsumerState<_ConfirmPaymentDialog> {
               const SizedBox(height: 10),
               TextFormField(
                 controller: _reference,
-                decoration: dec('Reference / UTR / cheque no.'),
-                textCapitalization: TextCapitalization.characters,
-                validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the reference' : null,
+                decoration: dec('Razorpay payment id'),
+                validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the payment id' : null,
               ),
-              if (claim == null) ...[
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: _method,
-                  decoration: dec('Method'),
-                  items: [for (final m in paymentMethods) DropdownMenuItem(value: m, child: Text(paymentMethodLabels[m] ?? m))],
-                  onChanged: (v) => setState(() => _method = v ?? 'BANK'),
-                ),
-                const SizedBox(height: 10),
-                InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () async {
-                    final d = await showDatePicker(
-                      context: context,
-                      initialDate: _paidOn,
-                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                      lastDate: DateTime.now(),
-                    );
-                    if (d != null) setState(() => _paidOn = d);
-                  },
-                  child: InputDecorator(decoration: dec('Received on'), child: Text(df.format(_paidOn))),
-                ),
-                const SizedBox(height: 10),
-                TextFormField(controller: _note, decoration: dec('Note (optional)')),
-              ],
               const SizedBox(height: 10),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
                 value: _verified,
                 onChanged: (v) => setState(() => _verified = v ?? false),
-                title: Text(claim != null && claim.isOnline
-                    ? 'I have verified this payment in Razorpay / the bank settlement'
-                    : 'I have verified this payment in the bank account',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                title: const Text('I have verified this payment in Razorpay', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               ),
               if (_error != null)
                 Padding(
