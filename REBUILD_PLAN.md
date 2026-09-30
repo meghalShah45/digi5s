@@ -153,7 +153,13 @@ Phase 0 in full, then Phase 1, then Phase 2 and 3 feature by feature, committing
   instructions, org-admin "Licence & payment" screen (quote + submit payment details), super-admin Payments & Licences
   screen (verify/confirm with double check, reject, awaiting registrations, history), special price and record-payment
   actions on the organisation detail screen. Not yet exercised on the simulator (see "Blocked on the owner").
-- Phase 7 release items: app icon / splash, store assets, Android upload key (see risk 1), iOS certificates.
+- Phase 7 release items: Android upload key (see risk 1), iOS certificates.
+- (2026-09-30) Done: app icon + native splash from the published App Store icon (`assets/branding/`, regenerate with
+  `dart run flutter_launcher_icons` / `dart run flutter_native_splash:create`), store screenshots (iPhone 6.9", iPad 13",
+  Android phone) and Play icon/feature graphic in `store_assets/`. Fixed while shooting: reversed audit remarks,
+  in-progress tasks missing from My Tasks, tablet dashboard columns, member-card / zone-dropdown overflow, audit chart
+  axis and plural, Android Gradle plugin 8.9.1.
+- Not built: zone-score and audit-score trend charts (Phase 3 items; no screen uses `/zone-scores/org` or `/audit-scores/*`).
 - Audit screens still use the June code paths (they work, but do not yet use `ApiClient`).
 - Steering committee screen is local-only (no backend); consider removing.
 

@@ -85,7 +85,9 @@ class _MyTasksScreenState extends State<MyTasksScreen>
     if (status == 'PENDING') {
       return _tasks
           .where((task) =>
-              task.status == 'PENDING' || task.status == 'PENDING_APPROVAL')
+              task.status == 'PENDING' ||
+              task.status == 'PENDING_APPROVAL' ||
+              task.isInProgress)
           .toList();
     }
     return _tasks.where((task) => task.status == status).toList();
@@ -96,6 +98,9 @@ class _MyTasksScreenState extends State<MyTasksScreen>
       case 'PENDING':
       case 'PENDING_APPROVAL':
         return const Color(0xFFFFF9C4);
+      case 'WORK-IN-PROGRESS':
+      case 'VERIFY':
+        return const Color(0xFFE3F2FD);
       case 'COMPLETED':
         return const Color(0xFFE8F5E9);
       case 'REJECTED':
@@ -111,6 +116,10 @@ class _MyTasksScreenState extends State<MyTasksScreen>
         return 'Pending';
       case 'PENDING_APPROVAL':
         return 'Pending Approval';
+      case 'WORK-IN-PROGRESS':
+        return 'In Progress';
+      case 'VERIFY':
+        return 'To Verify';
       case 'COMPLETED':
         return 'Completed';
       case 'REJECTED':

@@ -6,6 +6,7 @@ import '../core/widgets/logout_button.dart';
 import '../features/dashboard/dashboard_widgets.dart';
 import '../theme/colors.dart';
 import 'home_screen.dart' show buildGridItem;
+import '../core/utils/layout.dart';
 
 class ZoneLeaderDashboard extends ConsumerWidget {
   const ZoneLeaderDashboard({super.key});
@@ -43,7 +44,7 @@ class ZoneLeaderDashboard extends ConsumerWidget {
 
   Widget _buildMainGrid(BuildContext context) {
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: dashboardColumns(context),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 15,

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/dashboard/dashboard_widgets.dart';
 import 'base_dashboard_screen.dart';
 import 'home_screen.dart' show buildGridItem;
+import '../core/utils/layout.dart';
 
 /// Read-only role: can browse organisation content but change nothing.
 class ViewerDashboard extends ConsumerWidget {
@@ -25,7 +26,7 @@ class ViewerDashboard extends ConsumerWidget {
             const FlashNewsTicker(),
             const DashboardStats(),
             GridView.count(
-              crossAxisCount: 2,
+              crossAxisCount: dashboardColumns(context),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 15,

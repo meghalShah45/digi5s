@@ -8,6 +8,7 @@ import '../../../features/dashboard/dashboard_widgets.dart';
 import '../../../screens/home_screen.dart' show buildGridItem;
 import '../../../services/zone_service.dart';
 import '../../../theme/colors.dart';
+import '../../../core/utils/layout.dart';
 
 /// Name of the current user's zone (null when unassigned or on error).
 final myZoneNameProvider = FutureProvider.autoDispose<String?>((ref) async {
@@ -80,7 +81,7 @@ class ZoneMemberDashboard extends ConsumerWidget {
 
   Widget _buildMainGrid(BuildContext context) {
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: dashboardColumns(context),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 15,

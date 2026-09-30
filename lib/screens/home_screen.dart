@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/dashboard/dashboard_widgets.dart';
+import '../core/utils/layout.dart';
 
 /// Organisation admin home.
 class HomeScreen extends ConsumerWidget {
@@ -34,7 +35,7 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildMainGrid(BuildContext context) {
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: dashboardColumns(context),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 15,

@@ -456,10 +456,11 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _buildInfoChip('Role', member['role'] ?? 'Unknown'),
-              const SizedBox(width: 8),
               _buildInfoChip('Designation', member['designation'] ?? 'Unknown'),
             ],
           ),

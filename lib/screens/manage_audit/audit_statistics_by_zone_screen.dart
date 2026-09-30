@@ -508,6 +508,8 @@ class _AuditStatisticsByZoneScreenState extends ConsumerState<AuditStatisticsByZ
                   alignment: BarChartAlignment.spaceAround,
                   maxY: submissions.isNotEmpty ? submissions.reduce((a, b) => a > b ? a : b) + 2 : 10,
                   barTouchData: BarTouchData(enabled: false),
+                  // Submission counts are whole numbers: one grid line and label per unit.
+                  gridData: const FlGridData(horizontalInterval: 1),
                   titlesData: FlTitlesData(
                     show: true,
                     rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -536,6 +538,7 @@ class _AuditStatisticsByZoneScreenState extends ConsumerState<AuditStatisticsByZ
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
+                        interval: 1,
                         getTitlesWidget: (value, meta) {
                           return Text(
                             value.toInt().toString(),
@@ -645,7 +648,7 @@ class _AuditStatisticsByZoneScreenState extends ConsumerState<AuditStatisticsByZ
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${month.totalSubmissions} submissions',
+                  '${month.totalSubmissions} ${month.totalSubmissions == 1 ? 'submission' : 'submissions'}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,

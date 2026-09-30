@@ -1,0 +1,13 @@
+# Regenerate with: dart run flutter_launcher_icons
+# Afterwards revert ios/Runner.xcodeproj/project.pbxproj: the tool wrongly sets
+# ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = AppIcon (must stay YES).
+# Master is the published App Store icon (1024x1024, no alpha).
+flutter_launcher_icons:
+  image_path: "assets/branding/app_icon.png"
+  android: "ic_launcher"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/branding/app_icon.png"
+  adaptive_icon_foreground_inset: 24
+  min_sdk_android: 21
+  ios: true
+  remove_alpha_ios: true

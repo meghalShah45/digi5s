@@ -7,6 +7,7 @@ import '../core/widgets/logout_button.dart';
 import '../features/dashboard/dashboard_widgets.dart';
 import '../features/organisations/organisation_service.dart';
 import '../theme/colors.dart';
+import '../core/utils/layout.dart';
 
 class SuperAdminDashboard extends ConsumerWidget {
   const SuperAdminDashboard({super.key});
@@ -43,7 +44,7 @@ class SuperAdminDashboard extends ConsumerWidget {
             children: [
               const ActingOrgBanner(),
               GridView.count(
-                crossAxisCount: 2,
+                crossAxisCount: dashboardColumns(context),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 18,

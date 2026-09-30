@@ -36,6 +36,9 @@ class PerformAuditScreen extends ConsumerStatefulWidget {
 class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
   final List<AuditQuestion> _questions = [];
   final Map<String, String> _remarks = {};
+  // One controller per question for the life of the screen. Creating it in
+  // build() reset the cursor on every keystroke and reversed typed text.
+  final Map<String, TextEditingController> _remarkControllers = {};
   final Map<String, List<Photos>> _photos = {};
   final ZoneService _zoneService = ZoneService();
   bool _isAuditComplete = false;
@@ -128,6 +131,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
               
               if (response.remarks != null && response.remarks!.isNotEmpty) {
                 _remarks[question.questionId] = response.remarks!;
+                _remarkControllers[question.questionId]?.text = response.remarks!;
               }
               
               if (response.photos!.isNotEmpty) {
@@ -261,6 +265,17 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       }
     });
   }
+
+  @override
+  void dispose() {
+    for (final c in _remarkControllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  TextEditingController _remarksController(String questionId) =>
+      _remarkControllers.putIfAbsent(questionId, () => TextEditingController(text: _remarks[questionId] ?? ''));
 
   void _updateRemarks(String questionId, String remark) {
     setState(() {
@@ -779,7 +794,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
           const SizedBox(height: 16),
           TextField(
             enabled: _canPerformAudit,
-            controller: TextEditingController(text: _remarks[question.questionId] ?? ''),
+            controller: _remarksController(question.questionId),
             decoration: const InputDecoration(
               labelText: 'Remarks',
               border: OutlineInputBorder(),
@@ -1024,6 +1039,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
                     ? const Center(child: CircularProgressIndicator())
                     : DropdownButtonFormField<Zone>(
                         value: _selectedZone,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Zone',
                           border: OutlineInputBorder(),
@@ -1031,7 +1047,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
                         items: _zones.map((Zone zone) {
                           return DropdownMenuItem<Zone>(
                             value: zone,
-                            child: Text(zone.zoneName),
+                            child: Text(zone.zoneName, overflow: TextOverflow.ellipsis),
                           );
                         }).toList(),
                         onChanged: (Zone? newValue) {
