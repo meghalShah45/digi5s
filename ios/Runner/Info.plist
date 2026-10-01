@@ -6,10 +6,6 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
-	<key>NSCameraUsageDescription</key>
-	<string>diGi5S uses the camera to attach photos to tasks, red tags and audits.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>diGi5S needs photo library access to attach images to tasks, red tags, audits and content.</string>
 	<key>CFBundleDisplayName</key>
 	<string>diGi5S</string>
 	<key>CFBundleExecutable</key>
@@ -28,8 +24,14 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>diGi5S uses the camera to attach photos to tasks, red tags and audits.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>diGi5S needs photo library access to attach images to tasks, red tags, audits and content.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -57,6 +59,8 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>UIStatusBarHidden</key>
+	<false/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -70,7 +74,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UIStatusBarHidden</key>
-	<false/>
 </dict>
 </plist>
