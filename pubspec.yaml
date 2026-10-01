@@ -18,7 +18,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # of the product and file versions while build-number is used as the build suffix.
 # Store: App Store 2.0.0 (Oct 2025), Play Store updated Mar 2026. Build number MUST exceed the
 # current Play Console versionCode before upload; check Play Console > Release > App bundle explorer.
-version: 2.1.0+30
+version: 2.1.0+38
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
