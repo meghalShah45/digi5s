@@ -1,14 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
+import '../config/admin_console.dart';
 import 'session.dart';
 
 /// Login, logout and password reset against the backend.
 class AuthRepository {
-  AuthRepository(this._api, this._session);
+  AuthRepository(this._api, this._session, {this.superAdminOnly = false});
 
   final ApiClient _api;
   final SessionNotifier _session;
+
+  /// Web console: reject every role except super admin.
+  final bool superAdminOnly;
 
   /// `POST /users/login`. The JWT arrives in `data.authToken`.
   Future<UserSession> login({required String email, required String password}) async {
@@ -27,6 +31,9 @@ class AuthRepository {
     }
     if (session.role.isEmpty || session.homeRoute == '/login') {
       throw ApiException(403, 'Your account role (${session.roleRaw}) is not supported by this app.');
+    }
+    if (superAdminOnly && !session.isSuperAdmin) {
+      throw const ApiException(403, 'This console is for Seicho super admins only. Please use the diGi5S mobile app.');
     }
     await _session.setSession(session);
     return session;
@@ -67,5 +74,9 @@ class AuthRepository {
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.read(apiClientProvider), ref.read(sessionProvider.notifier));
+  return AuthRepository(
+    ref.read(apiClientProvider),
+    ref.read(sessionProvider.notifier),
+    superAdminOnly: ref.read(adminConsoleProvider),
+  );
 });

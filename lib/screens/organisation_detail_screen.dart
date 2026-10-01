@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../core/api/api_client.dart';
 import '../core/auth/session.dart';
+import '../core/config/admin_console.dart';
 import '../features/licence/confirm_payment_dialog.dart';
 import '../features/licence/licence_service.dart';
 import '../features/organisations/organisation_service.dart';
@@ -120,6 +121,7 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
     final sub = ref.watch(orgSubscriptionsProvider).valueOrNull?[widget.orgId];
     final licence = ref.watch(licenceStatusProvider(widget.orgId)).valueOrNull;
     final session = ref.watch(currentUserProvider);
+    final console = ref.watch(adminConsoleProvider);
     final df = DateFormat('d MMM yyyy');
     final inr = NumberFormat.decimalPattern('en_IN');
 
@@ -144,23 +146,25 @@ class _OrganisationDetailScreenState extends ConsumerState<OrganisationDetailScr
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Work-in-org action
-              Card(
-                color: isActing ? Colors.green.shade50 : AppColors.primary.withOpacity(0.06),
-                child: ListTile(
-                  leading: Icon(isActing ? Icons.check_circle : Icons.login, color: isActing ? Colors.green : AppColors.primary),
-                  title: Text(isActing ? 'You are working in this organisation' : 'Work in this organisation'),
-                  subtitle: const Text('Manage zones, members, audits, content and approvals'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _busy
-                      ? null
-                      : () async {
-                          await ref.read(sessionProvider.notifier).actInOrganisation(orgId: org.id, orgName: org.name);
-                          if (context.mounted) context.go('/org-admin-dashboard');
-                        },
+              // Work-in-org action (mobile only: the web console has no organisation screens)
+              if (!console) ...[
+                Card(
+                  color: isActing ? Colors.green.shade50 : AppColors.primary.withOpacity(0.06),
+                  child: ListTile(
+                    leading: Icon(isActing ? Icons.check_circle : Icons.login, color: isActing ? Colors.green : AppColors.primary),
+                    title: Text(isActing ? 'You are working in this organisation' : 'Work in this organisation'),
+                    subtitle: const Text('Manage zones, members, audits, content and approvals'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _busy
+                        ? null
+                        : () async {
+                            await ref.read(sessionProvider.notifier).actInOrganisation(orgId: org.id, orgName: org.name);
+                            if (context.mounted) context.go('/org-admin-dashboard');
+                          },
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
               _section('Details', [
                 _row('Email', org.email),
                 _row('Phone', org.contactNo),

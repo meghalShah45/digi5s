@@ -95,6 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
                   child: Container(
+                    constraints: const BoxConstraints(maxWidth: 440),
                     padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF7F3FA),

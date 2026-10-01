@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/auth/session.dart';
+import '../core/config/admin_console.dart';
 import '../core/widgets/logout_button.dart';
 import '../features/dashboard/dashboard_widgets.dart';
 import '../features/organisations/organisation_service.dart';
@@ -16,6 +17,8 @@ class SuperAdminDashboard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(currentUserProvider);
     final acting = session?.isActingInOrg ?? false;
+    // The web console has no organisation screens.
+    final console = ref.watch(adminConsoleProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
@@ -42,7 +45,7 @@ class SuperAdminDashboard extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
             children: [
-              const ActingOrgBanner(),
+              if (!console) const ActingOrgBanner(),
               GridView.count(
                 crossAxisCount: dashboardColumns(context),
                 shrinkWrap: true,
@@ -58,22 +61,23 @@ class SuperAdminDashboard extends ConsumerWidget {
                     icon: Icons.manage_accounts_outlined,
                     onTap: () => context.push('/super-admin/active-organizations'),
                   ),
-                  _Tile(
-                    title: 'Manage\nAudit',
-                    bg: const Color(0xFFF3E5F5),
-                    fg: const Color(0xFF7B1FA2),
-                    icon: Icons.assignment_outlined,
-                    onTap: () {
-                      if (acting) {
-                        context.push('/manage-audit');
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Pick an organisation first, then choose "Work in this organisation".'),
-                        ));
-                        context.push('/super-admin/active-organizations');
-                      }
-                    },
-                  ),
+                  if (!console)
+                    _Tile(
+                      title: 'Manage\nAudit',
+                      bg: const Color(0xFFF3E5F5),
+                      fg: const Color(0xFF7B1FA2),
+                      icon: Icons.assignment_outlined,
+                      onTap: () {
+                        if (acting) {
+                          context.push('/manage-audit');
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Pick an organisation first, then choose "Work in this organisation".'),
+                          ));
+                          context.push('/super-admin/active-organizations');
+                        }
+                      },
+                    ),
                   _Tile(
                     title: 'Payments &\nLicences',
                     bg: const Color(0xFFE3F2FD),
@@ -81,7 +85,7 @@ class SuperAdminDashboard extends ConsumerWidget {
                     icon: Icons.account_balance_wallet_outlined,
                     onTap: () => context.push('/super-admin/pending-subscriptions'),
                   ),
-                  if (acting)
+                  if (acting && !console)
                     _Tile(
                       title: 'Open\n${session!.actingOrgName ?? 'organisation'}',
                       bg: const Color(0xFFE8F5E9),
