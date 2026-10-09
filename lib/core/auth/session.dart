@@ -185,6 +185,22 @@ class SessionStore {
 
   final FlutterSecureStorage _storage;
   static const _sessionKey = 'session_v1';
+  static const _pendingSignupKey = 'pending_signup_email';
+
+  /// Email of a direct signup (Subscribe) that has registered but cannot log in
+  /// yet. Kept so the app reopens on its payment screen.
+  Future<String?> readPendingSignup() async {
+    try {
+      final v = await _storage.read(key: _pendingSignupKey);
+      return (v == null || v.isEmpty) ? null : v;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> writePendingSignup(String email) => _storage.write(key: _pendingSignupKey, value: email.trim().toLowerCase());
+
+  Future<void> clearPendingSignup() => _storage.delete(key: _pendingSignupKey);
   static const legacyKeys = ['token', 'userId', 'userRole', 'userName', 'orgId', 'zoneId', 'userEmail'];
 
   Future<UserSession?> read() async {
@@ -286,3 +302,6 @@ class IntroSeenNotifier extends AsyncNotifier<bool> {
 }
 
 final introSeenProvider = AsyncNotifierProvider<IntroSeenNotifier, bool>(IntroSeenNotifier.new);
+
+/// Email of an unpaid direct signup made on this device, read once at launch.
+final pendingSignupProvider = FutureProvider<String?>((ref) => ref.read(sessionStoreProvider).readPendingSignup());

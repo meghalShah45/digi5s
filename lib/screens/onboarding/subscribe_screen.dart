@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/auth/session.dart';
 import '../../features/licence/licence_service.dart';
 import '../../features/onboarding/onboarding_service.dart';
 import '../../theme/colors.dart';
@@ -33,6 +34,33 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
   OnlineOrder? _order;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resume());
+  }
+
+  /// Reopen the payment card for a registration made earlier on this device.
+  Future<void> _resume() async {
+    final email = await ref.read(sessionStoreProvider).readPendingSignup();
+    if (!mounted || email == null) return;
+    _lookupEmail.text = email;
+    await _lookup(resuming: true);
+  }
+
+  Future<void> _startOver() async {
+    await ref.read(sessionStoreProvider).clearPendingSignup();
+    if (!mounted) return;
+    setState(() {
+      _details = null;
+      _offer = null;
+      _registered = null;
+      _paidOnline = false;
+      _lookupMode = false;
+      _lookupEmail.clear();
+    });
+  }
+
+  @override
   void dispose() {
     _razorpay?.clear();
     _lookupEmail.dispose();
@@ -41,7 +69,7 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
 
   /// "Already registered? Complete your payment": find the registration by
   /// email and reuse the registered card (online payment).
-  Future<void> _lookup() async {
+  Future<void> _lookup({bool resuming = false}) async {
     final email = _lookupEmail.text.trim();
     if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
       _snack('Enter the email you registered with', error: true);
@@ -54,11 +82,23 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
       setState(() {
         _details = RegistrationDetails(orgName: offer.orgName ?? '', unitName: '', adminName: '', adminPhone: '', adminEmail: email);
         _registered = offer;
-        _paidOnline = false;
+        // Already paid and waiting for Seicho Consulting's confirmation.
+        _paidOnline = offer.pendingPaymentStatus == 'CLAIMED' && offer.pendingPaymentIsOnline;
       });
+      await ref.read(sessionStoreProvider).writePendingSignup(email);
     } on ApiException catch (e) {
+      if (resuming && e.statusCode == 404) {
+        // No longer waiting for payment: confirmed (login details were emailed) or removed.
+        await ref.read(sessionStoreProvider).clearPendingSignup();
+        _lookupEmail.clear();
+        _snack('Your registration is no longer awaiting payment. If your payment was confirmed, sign in with the login details emailed to you.');
+        if (mounted) context.go('/login');
+        return;
+      }
+      if (resuming) setState(() => _lookupMode = true);
       _snack(e.statusCode == 429 ? 'Too many attempts. Please try again later.' : e.message, error: true);
     } catch (_) {
+      if (resuming) setState(() => _lookupMode = true);
       _snack('Could not find the registration. Please try again.', error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -145,6 +185,7 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
     try {
       final r = await ref.read(onboardingServiceProvider).register(d);
       setState(() => _registered = r);
+      await ref.read(sessionStoreProvider).writePendingSignup(d.adminEmail);
     } on ApiException catch (e) {
       _snack(e.message, error: true);
     } catch (_) {
@@ -160,6 +201,11 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
       backgroundColor: const Color(0xFFF5F6FA),
       appBar: AppBar(
         title: const Text('Subscribe'),
+        // Opened directly at launch for an unpaid registration: there is nothing to pop back to.
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/get-started'),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -191,6 +237,13 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
                 busy: _busy,
                 onRegister: _register,
                 onBack: () => setState(() => _offer = null),
+              ),
+            if (_registered != null)
+              Center(
+                child: TextButton(
+                  onPressed: _busy ? null : _startOver,
+                  child: const Text('Not your registration? Start again'),
+                ),
               ),
             if (_registered == null) ...[
               const SizedBox(height: 20),

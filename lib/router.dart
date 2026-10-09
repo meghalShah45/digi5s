@@ -52,6 +52,7 @@ class _SessionListenable extends ChangeNotifier {
   _SessionListenable(Ref ref) {
     ref.listen<AsyncValue<UserSession?>>(sessionProvider, (_, __) => notifyListeners());
     ref.listen<AsyncValue<bool>>(introSeenProvider, (_, __) => notifyListeners());
+    ref.listen<AsyncValue<String?>>(pendingSignupProvider, (_, __) => notifyListeners());
   }
 }
 
@@ -66,17 +67,19 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
       final intro = ref.read(introSeenProvider);
+      final pendingSignup = ref.read(pendingSignupProvider);
       final location = state.matchedLocation;
 
       // Still reading secure storage: stay on the splash screen.
-      if (session.isLoading || intro.isLoading) return location == '/' ? null : '/';
+      if (session.isLoading || intro.isLoading || pendingSignup.isLoading) return location == '/' ? null : '/';
 
       final user = session.valueOrNull;
       final isPublic = _publicRoutes.contains(location);
 
       if (user == null) {
         final entry = (intro.valueOrNull ?? false) ? '/get-started' : '/intro';
-        if (location == '/') return entry;
+        // Registered through Subscribe but not paid yet: reopen on the payment screen.
+        if (location == '/') return (pendingSignup.valueOrNull ?? '').isNotEmpty ? '/subscribe' : entry;
         if (!isPublic) return entry;
         if (location == '/intro' && (intro.valueOrNull ?? false)) return '/get-started';
         return null;

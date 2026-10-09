@@ -255,6 +255,27 @@ class _AwaitingTab extends ConsumerWidget {
                       Text('Registered in the app without a trial and not paid yet. Once they pay ₹${_inr(o.licencePrice)} online, '
                           'the payment appears under "To verify" for you to confirm.',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.sell_outlined, size: 18),
+                        label: Text(o.licencePrice == 10000 ? 'Give discount' : 'Change special price'),
+                        onPressed: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final v = await showSpecialPriceDialog(context,
+                              orgName: o.orgName, current: o.licencePrice == 10000 ? null : o.licencePrice);
+                          if (v == null) return; // cancelled
+                          final price = v == -1 ? null : v;
+                          try {
+                            await ref.read(licenceServiceProvider).setLicencePrice(o.orgId, price);
+                            messenger.showSnackBar(SnackBar(
+                                content: Text(price == null ? 'Special price removed (list price applies)' : 'Special licence price set'),
+                                backgroundColor: Colors.green.shade700));
+                            await onRefresh();
+                          } on ApiException catch (e) {
+                            messenger.showSnackBar(SnackBar(content: Text(e.message), backgroundColor: Colors.red.shade700));
+                          }
+                        },
+                      ),
                     ],
                   ),
                 ),
