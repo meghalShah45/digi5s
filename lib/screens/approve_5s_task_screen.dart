@@ -626,7 +626,7 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
-                                        child: OutlinedButton(
+                                        child: ReadOnlyGate(builder: (context, readOnly) => OutlinedButton(
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: const Color(0xFFC2185B),
                                             side: const BorderSide(color: Color(0xFFC2185B)),
@@ -634,7 +634,7 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
-                                          onPressed: _isProcessingAction ? null : () {
+                                          onPressed: readOnly || _isProcessingAction ? null : () {
                                             print('Disapprove button pressed for task: ${task.id}');
                                             _handleTaskAction(task.id, false);
                                           },
@@ -648,7 +648,7 @@ class _Approve5STaskScreenState extends State<Approve5STaskScreen> {
                                                 ),
                                               )
                                             : const Text('Disapprove'),
-                                        ),
+                                        )),
                                       ),
                                     ],
                                   ),

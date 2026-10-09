@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/auth/session.dart';
 import '../features/dashboard/dashboard_repository.dart';
 
 /// Shown at the top of any screen that creates or changes data. Renders
@@ -59,5 +60,9 @@ class ReadOnlyGate extends ConsumerWidget {
   final Widget Function(BuildContext context, bool readOnly) builder;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => builder(context, ref.watch(orgReadOnlyProvider));
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Viewers are read-only whatever the organisation's state (the backend refuses their writes too).
+    final isViewer = ref.watch(currentUserProvider)?.isViewer ?? false;
+    return builder(context, isViewer || ref.watch(orgReadOnlyProvider));
+  }
 }

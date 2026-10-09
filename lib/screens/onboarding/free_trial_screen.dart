@@ -64,7 +64,7 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
         builder: (ctx) => AlertDialog(
           icon: const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 48),
           title: const Text('Your free trial is ready'),
-          content: Text('Login details for ${d.adminEmail} have been emailed. Your 14-day trial starts now.'),
+          content: Text('Login details for ${d.adminEmail} have been emailed. Your 15-day trial starts now.'),
           actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Go to sign in'))],
         ),
       );
