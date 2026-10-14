@@ -26,6 +26,30 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tez</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>gpay</string>
+		<string>bhim</string>
+		<string>upi</string>
+		<string>credpay</string>
+		<string>mobikwik</string>
+		<string>amazonpay</string>
+		<string>in.fampay.app</string>
+		<string>navi</string>
+		<string>kiwi</string>
+		<string>payzapp</string>
+		<string>jupiter</string>
+		<string>slice-upi</string>
+		<string>bobupi</string>
+		<string>sbiyono</string>
+		<string>myjio</string>
+		<string>icici</string>
+		<string>whatsapp</string>
+		<string>kotak</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
