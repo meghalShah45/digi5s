@@ -49,6 +49,11 @@
 		<string>icici</string>
 		<string>whatsapp</string>
 		<string>kotak</string>
+		<string>omnicard</string>
+		<string>popclubapp</string>
+		<string>shriramone</string>
+		<string>indusmobile</string>
+		<string>kotakbank</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
