@@ -1,3 +1,4 @@
+import '../licence/upi_qr_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
@@ -137,6 +138,17 @@ class OnboardingService {
   Future<OnlineOrder> initiateSignupPayment({required String orgId, required String adminEmail}) async {
     final res = await _api.post('/paid-subscription/payment/initiate', body: {'orgId': orgId, 'adminEmail': adminEmail.trim().toLowerCase()});
     return OnlineOrder.fromJson(res.map);
+  }
+
+  Future<UpiQr> createSignupQr({required String orgId, required String adminEmail}) async {
+    final res = await _api.post('/paid-subscription/payment/qr', body: {'orgId': orgId, 'adminEmail': adminEmail.trim().toLowerCase()});
+    return UpiQr.fromJson(res.map);
+  }
+
+  Future<UpiQr> signupQrStatus({required String orgId, required String adminEmail, required String paymentId}) async {
+    final res = await _api.post('/paid-subscription/payment/qr/status',
+        body: {'orgId': orgId, 'adminEmail': adminEmail.trim().toLowerCase(), 'paymentId': paymentId});
+    return UpiQr.fromJson(res.map);
   }
 
   /// Verifies the checkout result; the super admin then confirms and the

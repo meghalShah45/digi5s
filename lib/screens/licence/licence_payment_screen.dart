@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
+import '../../features/licence/upi_qr_screen.dart';
 import '../../core/api/api_client.dart';
 import '../../features/dashboard/dashboard_repository.dart';
 import '../../features/licence/licence_service.dart';
@@ -46,6 +47,14 @@ class _LicencePaymentScreenState extends ConsumerState<LicencePaymentScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _payByQr() async {
+    final svc = ref.read(licenceServiceProvider);
+    final paid = await UpiQrScreen.open(context, create: () => svc.createQr(), checkStatus: (id) => svc.qrStatus(id));
+    if (!paid) return;
+    _snack('Payment received and verified. Seicho Consulting will confirm it shortly.');
+    await _refresh();
   }
 
   Future<void> _onOnlineSuccess(PaymentSuccessResponse r) async {
@@ -116,7 +125,7 @@ class _LicencePaymentScreenState extends ConsumerState<LicencePaymentScreen> {
                   _PendingClaimCard(claim: q.pendingClaim!)
                 else if (q.somethingDue) ...[
                   if (q.onlinePaymentEnabled)
-                    _OnlinePayCard(q: q, busy: _busy, onPay: _payOnline)
+                    _OnlinePayCard(q: q, busy: _busy, onPay: _payOnline, onPayByQr: _payByQr)
                   else
                     Card(
                       child: ListTile(
@@ -209,10 +218,11 @@ class _StatusCard extends StatelessWidget {
 }
 
 class _OnlinePayCard extends StatelessWidget {
-  const _OnlinePayCard({required this.q, required this.busy, required this.onPay});
+  const _OnlinePayCard({required this.q, required this.busy, required this.onPay, required this.onPayByQr});
   final LicenceQuote q;
   final bool busy;
   final VoidCallback onPay;
+  final VoidCallback onPayByQr;
 
   @override
   Widget build(BuildContext context) {
@@ -245,6 +255,13 @@ class _OnlinePayCard extends StatelessWidget {
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.lock_outline),
               label: Text('Pay ₹${_inr(q.amountDue)} with Razorpay'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+              onPressed: busy ? null : onPayByQr,
+              icon: const Icon(Icons.qr_code_2),
+              label: const Text('Pay by UPI QR code'),
             ),
           ],
         ),

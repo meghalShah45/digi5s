@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/auth/session.dart';
+import 'upi_qr_screen.dart';
 
 /// Payment record (a signature-verified Razorpay payment) and the super admin's
 /// confirmation. `OFFLINE` rows can only come from before 2026-09-29.
@@ -299,6 +300,16 @@ class LicenceService {
   }
 
   // ---- organisation admin -------------------------------------------------
+
+  Future<UpiQr> createQr({String? orgId}) async {
+    final res = await _api.post('/licence/payment/qr', body: {if (orgId != null) 'orgId': orgId});
+    return UpiQr.fromJson(res.map);
+  }
+
+  Future<UpiQr> qrStatus(String paymentId, {String? orgId}) async {
+    final res = await _api.post('/licence/payment/qr/status', body: {'paymentId': paymentId, if (orgId != null) 'orgId': orgId});
+    return UpiQr.fromJson(res.map);
+  }
 
   Future<LicenceQuote> quote({String? orgId}) async {
     final res = await _api.get('/licence/quote', query: orgId == null ? null : {'orgId': orgId});

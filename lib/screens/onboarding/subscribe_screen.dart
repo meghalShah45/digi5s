@@ -8,6 +8,7 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/session.dart';
 import '../../features/licence/licence_service.dart';
+import '../../features/licence/upi_qr_screen.dart';
 import '../../features/onboarding/onboarding_service.dart';
 import '../../theme/colors.dart';
 import 'registration_form.dart';
@@ -127,6 +128,19 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
     }
   }
 
+  Future<void> _payByQr() async {
+    final reg = _registered;
+    final d = _details;
+    if (reg == null || reg.orgId == null || d == null) return;
+    final svc = ref.read(onboardingServiceProvider);
+    final paid = await UpiQrScreen.open(
+      context,
+      create: () => svc.createSignupQr(orgId: reg.orgId!, adminEmail: d.adminEmail),
+      checkStatus: (id) => svc.signupQrStatus(orgId: reg.orgId!, adminEmail: d.adminEmail, paymentId: id),
+    );
+    if (paid && mounted) setState(() => _paidOnline = true);
+  }
+
   Future<void> _onOnlineSuccess(PaymentSuccessResponse r) async {
     final order = _order;
     final reg = _registered;
@@ -221,6 +235,7 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
                 paidOnline: _paidOnline,
                 busy: _busy,
                 onPayOnline: _registered!.onlinePaymentEnabled && !_paidOnline ? _payOnline : null,
+                onPayByQr: _payByQr,
                 onDone: () => context.go('/get-started'),
               )
             else if (_offer == null)
@@ -355,6 +370,7 @@ class _RegisteredCard extends StatelessWidget {
     required this.paidOnline,
     required this.busy,
     required this.onPayOnline,
+    required this.onPayByQr,
     required this.onDone,
   });
   final LicenceOffer offer;
@@ -362,6 +378,7 @@ class _RegisteredCard extends StatelessWidget {
   final bool paidOnline;
   final bool busy;
   final VoidCallback? onPayOnline;
+  final VoidCallback onPayByQr;
   final VoidCallback onDone;
 
   @override
@@ -469,6 +486,16 @@ class _RegisteredCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text('UPI, cards, net banking and wallets via Razorpay.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : onPayByQr,
+                style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                icon: const Icon(Icons.qr_code_2),
+                label: const Text('Pay by UPI QR code', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+            ),
           ] else
             Container(
               padding: const EdgeInsets.all(14),
