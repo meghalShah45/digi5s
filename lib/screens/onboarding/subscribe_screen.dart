@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/session.dart';
 import '../../features/licence/licence_service.dart';
@@ -486,6 +487,7 @@ class _RegisteredCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text('UPI, cards, net banking and wallets via Razorpay.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+            if (AppConfig.upiQrEnabled) ...[
             const SizedBox(height: 10),
             SizedBox(
               height: 50,
@@ -496,6 +498,7 @@ class _RegisteredCard extends StatelessWidget {
                 label: const Text('Pay by UPI QR code', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
             ),
+            ],
           ] else
             Container(
               padding: const EdgeInsets.all(14),

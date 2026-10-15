@@ -12,6 +12,10 @@ class AppConfig {
 
   static const String appName = 'diGi5S';
 
+  /// "Pay by UPI QR code". Off until Razorpay activates QR Codes in live mode;
+  /// turn on with --dart-define=UPI_QR=true (or change the default) and rebuild.
+  static const bool upiQrEnabled = bool.fromEnvironment('UPI_QR', defaultValue: false);
+
   /// Public S3 bucket that holds every uploaded file.
   static const String uploadsBaseUrl =
       'https://digi5s-app-uploads.s3.ap-south-1.amazonaws.com';

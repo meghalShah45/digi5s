@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
+import '../../core/config/app_config.dart';
 import '../../features/licence/upi_qr_screen.dart';
 import '../../core/api/api_client.dart';
 import '../../features/dashboard/dashboard_repository.dart';
@@ -256,6 +257,7 @@ class _OnlinePayCard extends StatelessWidget {
                   : const Icon(Icons.lock_outline),
               label: Text('Pay ₹${_inr(q.amountDue)} with Razorpay'),
             ),
+            if (AppConfig.upiQrEnabled) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
@@ -263,6 +265,7 @@ class _OnlinePayCard extends StatelessWidget {
               icon: const Icon(Icons.qr_code_2),
               label: const Text('Pay by UPI QR code'),
             ),
+            ],
           ],
         ),
       ),
