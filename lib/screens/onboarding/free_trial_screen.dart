@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,6 +19,9 @@ class FreeTrialScreen extends ConsumerStatefulWidget {
 class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
   bool _busy = false;
   RegistrationDetails? _submitted;
+  RegistrationDetails? _entered; // kept for "Edit details"
+  String? _errorField;
+  String? _errorMessage;
   final _code = TextEditingController();
 
   @override
@@ -33,14 +37,27 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
     );
   }
 
-  Future<void> _start(RegistrationDetails d) async {
-    setState(() => _busy = true);
+  Future<void> _start(RegistrationDetails d, {bool resend = false}) async {
+    setState(() {
+      _busy = true;
+      _entered = d;
+      _errorField = null;
+    });
     try {
       final msg = await ref.read(onboardingServiceProvider).startFreeTrial(d);
+      _code.clear();
       setState(() => _submitted = d);
-      _snack(msg.isEmpty ? 'Verification code sent to ${d.adminEmail}' : msg);
+      _snack(resend ? 'A new code was sent to ${d.adminEmail}' : (msg.isEmpty ? 'Verification code sent to ${d.adminEmail}' : msg));
     } on ApiException catch (e) {
-      _snack(e.statusCode == 429 ? 'A code was already sent. Check your inbox or wait a few minutes.' : e.message, error: true);
+      final field = e.data is Map ? (e.data as Map)['field']?.toString() : null;
+      if (field == 'email' || field == 'phone') {
+        setState(() {
+          _submitted = null; // back to the form, with what was typed
+          _errorField = field;
+          _errorMessage = e.message;
+        });
+      }
+      _snack(e.message, error: true);
     } catch (_) {
       _snack('Could not start the free trial. Please try again.', error: true);
     } finally {
@@ -50,21 +67,24 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
 
   Future<void> _verify() async {
     final d = _submitted;
-    if (d == null || _code.text.trim().length != 6) {
+    if (d == null || !RegExp(r'^\d{6}$').hasMatch(_code.text.trim())) {
       _snack('Enter the 6-digit code from your email', error: true);
       return;
     }
     setState(() => _busy = true);
     try {
-      await ref.read(onboardingServiceProvider).verifyFreeTrial(adminEmail: d.adminEmail, code: _code.text);
+      final message = await ref.read(onboardingServiceProvider).verifyFreeTrial(adminEmail: d.adminEmail, code: _code.text);
       if (!mounted) return;
+      final emailed = !message.toLowerCase().contains('could not email');
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           icon: const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 48),
           title: const Text('Your free trial is ready'),
-          content: Text('Login details for ${d.adminEmail} have been emailed. Your 15-day trial starts now.'),
+          content: Text(emailed
+              ? 'Login details for ${d.adminEmail} have been emailed. Your 15-day trial starts now.\n\nCan\'t find the email? Check your spam folder.'
+              : message),
           actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Go to sign in'))],
         ),
       );
@@ -99,6 +119,9 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
                 submitLabel: 'Start Free Trial',
                 busy: _busy,
                 onSubmit: _start,
+                initial: _entered,
+                errorField: _errorField,
+                errorMessage: _errorMessage,
               )
             else
               _VerifyCard(
@@ -106,7 +129,7 @@ class _FreeTrialScreenState extends ConsumerState<FreeTrialScreen> {
                 controller: _code,
                 busy: _busy,
                 onVerify: _verify,
-                onResend: () => _start(_submitted!),
+                onResend: () => _start(_submitted!, resend: true),
                 onEdit: () => setState(() => _submitted = null),
               ),
           ],
@@ -140,7 +163,7 @@ class _VerifyCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF3EEF8),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 24, offset: const Offset(0, 8))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -153,13 +176,17 @@ class _VerifyCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text('We sent a 6-digit code to $email. It is valid for 30 minutes.',
+          Text('We sent a 6-digit code to $email. It is valid for 30 minutes. Not in your inbox? Check the spam folder.',
               style: TextStyle(color: Colors.grey.shade700, height: 1.4)),
           const SizedBox(height: 20),
           TextField(
             controller: controller,
             keyboardType: TextInputType.number,
             maxLength: 6,
+            autofocus: true,
+            autofillHints: const [AutofillHints.oneTimeCode],
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onSubmitted: (_) => busy ? null : onVerify(),
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 26, letterSpacing: 10, fontWeight: FontWeight.bold),
             decoration: InputDecoration(
@@ -179,7 +206,7 @@ class _VerifyCard extends StatelessWidget {
               ),
               child: busy
                   ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Verify and create organization', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                  : const Text('Verify and create org.', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
             ),
           ),
           const SizedBox(height: 8),

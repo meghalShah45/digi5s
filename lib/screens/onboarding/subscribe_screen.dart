@@ -34,6 +34,9 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
   final _lookupEmail = TextEditingController();
   Razorpay? _razorpay;
   OnlineOrder? _order;
+  // A server-side problem with one form field ('email' / 'phone'), shown under it.
+  String? _errorField;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -72,8 +75,8 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
   /// "Already registered? Complete your payment": find the registration by
   /// email and reuse the registered card (online payment).
   Future<void> _lookup({bool resuming = false}) async {
-    final email = _lookupEmail.text.trim();
-    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+    final email = _lookupEmail.text.trim().toLowerCase();
+    if (validateEmail(email) != null) {
       _snack('Enter the email you registered with', error: true);
       return;
     }
@@ -176,16 +179,30 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
     );
   }
 
+  /// Shows [e] under its form field when the server named one, else as a snack bar.
+  void _showError(ApiException e) {
+    final field = e.data is Map ? (e.data as Map)['field']?.toString() : null;
+    if (field == 'email' || field == 'phone') {
+      setState(() {
+        _offer = null; // back to the form, with what was typed
+        _errorField = field;
+        _errorMessage = e.message;
+      });
+    }
+    _snack(e.message, error: true);
+  }
+
   Future<void> _showPricing(RegistrationDetails d) async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _details = d;
+      _errorField = null;
+    });
     try {
       final offer = await ref.read(onboardingServiceProvider).pricing(d);
-      setState(() {
-        _details = d;
-        _offer = offer;
-      });
+      setState(() => _offer = offer);
     } on ApiException catch (e) {
-      _snack(e.message, error: true);
+      _showError(e);
     } catch (_) {
       _snack('Could not fetch pricing. Please try again.', error: true);
     } finally {
@@ -202,7 +219,7 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
       setState(() => _registered = r);
       await ref.read(sessionStoreProvider).writePendingSignup(d.adminEmail);
     } on ApiException catch (e) {
-      _snack(e.message, error: true);
+      _showError(e);
     } catch (_) {
       _snack('Could not complete the registration. Please try again.', error: true);
     } finally {
@@ -246,6 +263,9 @@ class _SubscribeScreenState extends ConsumerState<SubscribeScreen> {
                 submitLabel: 'Show Pricing',
                 busy: _busy,
                 onSubmit: _showPricing,
+                initial: _details,
+                errorField: _errorField,
+                errorMessage: _errorMessage,
               )
             else
               _PricingCard(
@@ -303,6 +323,7 @@ class _PricingCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(child: Text(label, style: TextStyle(color: Colors.grey.shade700, fontWeight: bold ? FontWeight.w700 : FontWeight.w400, fontSize: bold ? 17 : 15))),
+              const SizedBox(width: 16),
               Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 20 : 15, color: bold ? AppColors.primary : const Color(0xFF1F1F1F))),
             ],
           ),
@@ -312,7 +333,7 @@ class _PricingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF3EEF8),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 24, offset: const Offset(0, 8))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -332,7 +353,7 @@ class _PricingCard extends StatelessWidget {
           ),
           const Divider(height: 28),
           row('One-time lifetime licence', _inr(offer.licencePrice)),
-          row('Cloud service included', '${offer.cloudYearsIncluded} year'),
+          row('Cloud service included', '${offer.cloudYearsIncluded} year${offer.cloudYearsIncluded == 1 ? '' : 's'}'),
           row('Cloud charge thereafter', '${_inr(offer.cloudPerYear)} / year'),
           const Divider(height: 28),
           row('Amount payable now', _inr(offer.totalAmount), bold: true),
@@ -354,10 +375,11 @@ class _PricingCard extends StatelessWidget {
               icon: busy
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.how_to_reg_outlined),
-              label: const Text('Register & get payment details', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+              label: const Text('Register & pay', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
             ),
           ),
-          TextButton(onPressed: busy ? null : onBack, child: const Text('Edit details')),
+          const SizedBox(height: 8),
+          TextButton.icon(onPressed: busy ? null : onBack, icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Edit details')),
         ],
       ),
     );
@@ -449,7 +471,7 @@ class _RegisteredCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF3EEF8),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 24, offset: const Offset(0, 8))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 8))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -469,7 +491,7 @@ class _RegisteredCard extends StatelessWidget {
           if (offer.hasSpecialPrice)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text('Special price agreed with Seicho Consulting (list price ${_inr(10000)})',
+              child: Text('Special price agreed with Seicho Consulting (list price ${_inr(offer.listPrice)})',
                   textAlign: TextAlign.center, style: TextStyle(color: Colors.green.shade800, fontSize: 12, fontWeight: FontWeight.w600)),
             ),
           const SizedBox(height: 16),
@@ -541,7 +563,7 @@ class _LookupCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF3EEF8),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 18, offset: const Offset(0, 6))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 18, offset: const Offset(0, 6))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -564,7 +586,7 @@ class _LookupCard extends StatelessWidget {
             autocorrect: false,
             onSubmitted: (_) => busy ? null : onFind(),
             decoration: InputDecoration(
-              hintText: 'Organization Admin E-mail',
+              labelText: 'Admin email used to register',
               prefixIcon: const Icon(Icons.email_outlined),
               contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade500)),

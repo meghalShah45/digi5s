@@ -96,13 +96,22 @@ class SubscriptionStatus {
   bool get isCloudExpired => pauseReason == 'CLOUD_EXPIRED' || (isLicensed && isExpired);
   bool get isManuallyPaused => isPaused && pauseReason == 'MANUAL';
 
-  int? get daysLeft => endDate == null ? null : endDate!.difference(DateTime.now()).inDays;
-  /// The end date is inclusive (matches the backend's `endDate >= CURRENT_DATE`).
-  bool get isExpired {
-    if (endDate == null) return false;
-    final now = DateTime.now();
-    return endDate!.isBefore(DateTime(now.year, now.month, now.day));
+  // The end date is a calendar date (sent as its midnight, often in UTC), so compare
+  // calendar days: counting 24-hour periods until that midnight came out one short.
+  DateTime? get _endDay {
+    final e = endDate?.toLocal();
+    return e == null ? null : DateTime(e.year, e.month, e.day);
   }
+
+  static DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  int? get daysLeft => _endDay == null ? null : (_endDay!.difference(_today).inHours / 24).round();
+
+  /// The end date is inclusive (matches the backend's `endDate >= CURRENT_DATE`).
+  bool get isExpired => _endDay != null && _endDay!.isBefore(_today);
 
   /// Mirrors the backend subscription guard: writes are refused unless there is an
   /// active subscription that hasn't passed its end date.

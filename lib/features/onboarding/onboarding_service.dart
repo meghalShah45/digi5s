@@ -11,6 +11,7 @@ class LicenceOffer {
   final String? orgId;
   final String planName;
   final num licencePrice;
+  final num listPrice; // before any special price
   final num cloudPerYear;
   final int cloudYearsIncluded;
   final num totalAmount;
@@ -25,6 +26,7 @@ class LicenceOffer {
     this.orgId,
     required this.planName,
     required this.licencePrice,
+    num? listPrice,
     required this.cloudPerYear,
     required this.cloudYearsIncluded,
     required this.totalAmount,
@@ -34,7 +36,7 @@ class LicenceOffer {
     this.hasSpecialPrice = false,
     this.pendingPaymentStatus,
     this.pendingPaymentIsOnline = false,
-  });
+  }) : listPrice = listPrice ?? licencePrice;
 
   bool get awaitingConfirmation => pendingPaymentStatus == 'CLAIMED';
 
@@ -51,6 +53,7 @@ class LicenceOffer {
       orgId: j['orgId']?.toString(),
       planName: (j['planName'] ?? 'diGi5S Lifetime Licence').toString(),
       licencePrice: n(j['licencePrice'], 10000),
+      listPrice: j['listPrice'] == null ? null : n(j['listPrice'], 10000),
       cloudPerYear: n(j['cloudPerYear'], 1000),
       cloudYearsIncluded: int.tryParse(j['cloudYearsIncluded']?.toString() ?? '') ?? 1,
       totalAmount: n(j['totalAmount'], 10000),
@@ -109,7 +112,7 @@ class OnboardingService {
   Future<String> verifyFreeTrial({required String adminEmail, required String code}) async {
     final res = await _api.post('/free-trial/verify', body: {
       'adminEmail': adminEmail.trim().toLowerCase(),
-      'verificationCode': code.trim(),
+      'verificationCode': code.replaceAll(RegExp(r'\D'), ''),
     });
     return res.message;
   }

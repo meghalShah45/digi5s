@@ -178,6 +178,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     : const Text('Login', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            // Login can be reached with go() (e.g. after a finished signup), leaving no back button.
+                            TextButton(
+                              onPressed: _isLoading ? null : () => context.go('/get-started'),
+                              style: TextButton.styleFrom(foregroundColor: _linkBlue),
+                              child: const Text('New to diGi5S? Start a free trial or subscribe', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                            ),
                           ],
                         ),
                       ),
