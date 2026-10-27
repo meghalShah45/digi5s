@@ -2,11 +2,10 @@ import 'dart:io';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../models/zone.dart';
 import '../../../theme/colors.dart';
-import '../../../services/zone_service.dart';
 import '../models/news.dart';
 import '../services/news_service.dart';
+import '../../../core/utils/open_file.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ManageNewsScreen extends StatefulWidget {
@@ -19,10 +18,7 @@ class ManageNewsScreen extends StatefulWidget {
 }
 
 class _ManageNewsScreenState extends State<ManageNewsScreen> {
-  final ZoneService _zoneService = ZoneService();
   final NewsService _newsService = NewsService();
-  String? selectedZoneId;
-  List<Zone> zones = [];
   List<News> news = [];
   bool isLoading = true;
   String? error;
@@ -30,39 +26,30 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadZones();
-  }
-
-  Future<void> _loadZones() async {
-    try {
-      final storage = const FlutterSecureStorage();
-      final orgId = await storage.read(key: 'orgId') ?? '';
-      zones = await _zoneService.getZonesByOrgId(orgId);
-      await _loadNews();
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          error = e.toString();
-          isLoading = false;
-        });
-      }
-    }
+    _loadNews();
   }
 
   Future<void> _loadNews() async {
+    if (news.isEmpty && mounted) {
+      setState(() {
+        isLoading = true;
+        error = null;
+      });
+    }
     try {
-      news = await _newsService.getNews();
+      final items = await _newsService.getNews();
+      if (!mounted) return;
+      setState(() {
+        news = items;
+        error = null;
+        isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          error = e.toString();
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        error = e.toString();
+        isLoading = false;
+      });
     }
   }
 
@@ -82,8 +69,6 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildZoneDropdown(),
-                  const SizedBox(height: 16),
                   _buildHeader(),
                 ],
               ),
@@ -98,38 +83,6 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
         onPressed: () => _showAddNewsFlow(context),
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),
-      ),
-    );
-  }
-
-  Widget _buildZoneDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: selectedZoneId,
-          hint: const Text('Select Zone'),
-          isExpanded: true,
-          items: [
-            const DropdownMenuItem<String>(
-              value: null,
-              child: Text('All Zones'),
-            ),
-            ...zones.map((zone) => DropdownMenuItem<String>(
-                  value: zone.id,
-                  child: Text(zone.zoneName),
-                )),
-          ],
-          onChanged: (value) {
-            setState(() {
-              selectedZoneId = value;
-            });
-          },
-        ),
       ),
     );
   }
@@ -183,10 +136,12 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
     }
 
     if (news.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      return RefreshIndicator(
+        onRefresh: _loadNews,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
+            const SizedBox(height: 120),
             Icon(
               Icons.article_outlined,
               size: 64,
@@ -199,6 +154,7 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                 fontSize: 16,
                 color: Colors.grey,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -217,19 +173,10 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (newsItem.path != null)
-                  Container(
-                    height: 200,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(4),
-                      ),
-                      image: DecorationImage(
-                        image: NetworkImage(newsItem.path!),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                if ((newsItem.path ?? '').isNotEmpty)
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                    child: AttachmentPreview(url: newsItem.path!),
                   ),
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -247,14 +194,6 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 18,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  newsItem.createdBy ?? '',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 14,
                                   ),
                                 ),
                               ],
@@ -277,7 +216,7 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Posted on ${_formatDate(DateTime.parse(newsItem.createdAt!))}',
+                        _postedOn(newsItem.createdAt),
                         style: TextStyle(
                           color: Colors.grey[500],
                           fontSize: 12,
@@ -292,6 +231,11 @@ class _ManageNewsScreenState extends State<ManageNewsScreen> {
         },
       ),
     );
+  }
+
+  String _postedOn(String? createdAt) {
+    final d = DateTime.tryParse(createdAt ?? '');
+    return d == null ? '' : 'Posted on ${_formatDate(d.toLocal())}';
   }
 
   String _formatDate(DateTime date) {

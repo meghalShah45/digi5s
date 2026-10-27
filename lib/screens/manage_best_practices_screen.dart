@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/zone.dart';
 import '../services/zone_service.dart';
@@ -10,6 +9,7 @@ import '../theme/colors.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/auth/session.dart';
+import '../core/utils/open_file.dart';
 import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 class BestPractice {
@@ -35,13 +35,13 @@ class BestPractice {
 
   factory BestPractice.fromJson(Map<String, dynamic> json) {
     return BestPractice(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
-      zoneId: json['zone'],
-      dateCreated: DateTime.parse(json['createdAt']),
-      createdById: json['createdBy'],
-      imageUrl: json['path'],
+      id: json['id'].toString(),
+      title: (json['title'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      zoneId: (json['zone'] ?? '').toString(),
+      dateCreated: DateTime.tryParse((json['createdAt'] ?? '').toString()) ?? DateTime.now(),
+      createdById: (json['createdBy'] ?? '').toString(),
+      imageUrl: (json['path'] ?? '').toString().isEmpty ? null : json['path'].toString(),
       approved: json['approved'] ?? false,
     );
   }
@@ -241,7 +241,7 @@ class _ManageBestPracticesScreenState extends ConsumerState<ManageBestPracticesS
                               itemCount: filteredBestPractices.length,
                               itemBuilder: (context, index) {
                                 final practice = filteredBestPractices[index];
-                                final zone = zones.firstWhere((z) => z.id == practice.zoneId);
+                                final zoneName = zones.where((z) => z.id == practice.zoneId).map((z) => z.zoneName).firstOrNull ?? 'Unknown zone';
                                 
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 16.0),
@@ -249,12 +249,7 @@ class _ManageBestPracticesScreenState extends ConsumerState<ManageBestPracticesS
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       if (practice.imageUrl != null)
-                                        Image.network(
-                                          practice.imageUrl!,
-                                          height: 200,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover,
-                                        ),
+                                        AttachmentPreview(url: practice.imageUrl!),
                                       Padding(
                                         padding: const EdgeInsets.all(16.0),
                                         child: Column(
@@ -268,7 +263,7 @@ class _ManageBestPracticesScreenState extends ConsumerState<ManageBestPracticesS
                                                     style: Theme.of(context).textTheme.titleLarge,
                                                   ),
                                                 ),
-                                                if (!isZoneMember)
+                                                if (!isZoneMember && !ref.watch(orgReadOnlyProvider))
                                                   PopupMenuButton<String>(
                                                     onSelected: (value) {
                                                       if (value == 'edit') {
@@ -292,7 +287,7 @@ class _ManageBestPracticesScreenState extends ConsumerState<ManageBestPracticesS
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
-                                              'Zone: ${zone.zoneName}',
+                                              'Zone: $zoneName',
                                               style: Theme.of(context).textTheme.bodyMedium,
                                             ),
                                             const SizedBox(height: 8),
@@ -341,8 +336,9 @@ class _ManageBestPracticesScreenState extends ConsumerState<ManageBestPracticesS
         );
 
         final newPractice = BestPractice.fromJson(response['data'][0]);
+        if (!mounted) return;
         setState(() {
-          bestPractices.add(newPractice);
+          bestPractices.insert(0, newPractice); // list is newest first
           isLoading = false;
         });
 
@@ -430,7 +426,7 @@ class _AddBestPracticeSheetState extends State<AddBestPracticeSheet> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1920, imageQuality: 85);
     
     if (pickedFile != null) {
       setState(() {
@@ -445,7 +441,7 @@ class _AddBestPracticeSheetState extends State<AddBestPracticeSheet> {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: Container(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -521,7 +517,9 @@ class _AddBestPracticeSheetState extends State<AddBestPracticeSheet> {
                 color: Colors.grey,
                 strokeWidth: 1,
                 dashPattern: const [8, 4],
-                child: Container(
+                child: _selectedImage != null
+                    ? _pickedPreview(_selectedImage!)
+                    : Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(32),
                   child: Column(
@@ -534,9 +532,7 @@ class _AddBestPracticeSheetState extends State<AddBestPracticeSheet> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _selectedImage != null
-                            ? 'Image selected (tap to change)'
-                            : 'Tap to add image',
+                        'Tap to add image',
                         style: TextStyle(
                           color: Colors.grey[600],
                           fontSize: 16,
@@ -634,7 +630,7 @@ class _EditBestPracticeSheetState extends State<EditBestPracticeSheet> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1920, imageQuality: 85);
     
     if (pickedFile != null) {
       setState(() {
@@ -649,7 +645,7 @@ class _EditBestPracticeSheetState extends State<EditBestPracticeSheet> {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: Container(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -733,12 +729,7 @@ class _EditBestPracticeSheetState extends State<EditBestPracticeSheet> {
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        _currentImageUrl!,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
+                      child: AttachmentPreview(url: _currentImageUrl!),
                     ),
                   ],
                 ),
@@ -751,7 +742,9 @@ class _EditBestPracticeSheetState extends State<EditBestPracticeSheet> {
                 color: Colors.grey,
                 strokeWidth: 1,
                 dashPattern: const [8, 4],
-                child: Container(
+                child: _selectedImage != null
+                    ? _pickedPreview(_selectedImage!)
+                    : Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(32),
                   child: Column(
@@ -764,9 +757,7 @@ class _EditBestPracticeSheetState extends State<EditBestPracticeSheet> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _selectedImage != null
-                            ? 'New image selected (tap to change)'
-                            : 'Tap to change image (optional)',
+                        'Tap to change image (optional)',
                         style: TextStyle(
                           color: Colors.grey[600],
                           fontSize: 16,
@@ -777,32 +768,6 @@ class _EditBestPracticeSheetState extends State<EditBestPracticeSheet> {
                 ),
               ),
             ),
-            if (_selectedImage != null)
-              Container(
-                margin: const EdgeInsets.only(top: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'New Image Preview:',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        _selectedImage!,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -848,4 +813,25 @@ class _EditBestPracticeSheetState extends State<EditBestPracticeSheet> {
       ),
     );
   }
-} 
+}
+
+/// The picked photo inside the dashed picker box, with a hint that a tap changes it.
+Widget _pickedPreview(File file) {
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(8),
+    child: Stack(
+      children: [
+        Image.file(file, height: 200, width: double.infinity, fit: BoxFit.cover),
+        Positioned(
+          right: 8,
+          bottom: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(16)),
+            child: const Text('Tap to change', style: TextStyle(color: Colors.white, fontSize: 12)),
+          ),
+        ),
+      ],
+    ),
+  );
+}

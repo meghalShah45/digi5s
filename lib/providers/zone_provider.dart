@@ -75,9 +75,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
 
       final responseData = json.decode(response.body);
       
-      if (response.statusCode != 200) {
-        throw Exception(responseData['message'] ?? 'Failed to create zone');
-      }
+      _throwIfFailed(response, responseData, 'Failed to create zone');
 
       return responseData['message'] as String;
     } catch (e) {
@@ -103,16 +101,13 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
         body: json.encode({
           'zoneName': zoneName,
           'orgId': orgId,
-          'modifiedBy': 'SUPER-ADMIN',
         }),
       );
       await ApiClient.throwIfUnauthorized(response);
 
       final responseData = json.decode(response.body);
       
-      if (response.statusCode != 200) {
-        throw Exception(responseData['message'] ?? 'Failed to update zone');
-      }
+      _throwIfFailed(response, responseData, 'Failed to update zone');
 
       // Refresh the zones list after update
       await fetchZones();
@@ -141,9 +136,7 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
 
       final responseData = json.decode(response.body);
       
-      if (response.statusCode != 200) {
-        throw Exception(responseData['message'] ?? 'Failed to delete zone');
-      }
+      _throwIfFailed(response, responseData, 'Failed to delete zone');
 
       // Refresh the zones list after deletion
       await fetchZones();
@@ -152,4 +145,15 @@ class ZoneListNotifier extends StateNotifier<AsyncValue<List<ZoneData>?>> {
       rethrow;
     }
   }
-} 
+
+  /// The backend answers HTTP 200 for most failures and puts the real code in
+  /// the body (`statusCode` / `status`), so check both.
+  static void _throwIfFailed(http.Response response, dynamic body, String fallback) {
+    final map = body is Map ? body : const {};
+    final code = map['statusCode'];
+    final failed = response.statusCode >= 300 ||
+        map['status'] == false ||
+        (code is int && (code < 200 || code >= 300));
+    if (failed) throw Exception((map['message'] ?? map['error'] ?? fallback).toString());
+  }
+}

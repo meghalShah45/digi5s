@@ -20,7 +20,6 @@ class CreateRedTagScreenWrapper extends StatefulWidget {
 class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
   final ZoneService _zoneService = ZoneService();
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _remarksController = TextEditingController();
   final RedTagService _redTagService = RedTagService();
   var userId;
   List<Zone> zones = [];
@@ -39,7 +38,6 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
   @override
   void dispose() {
     _descriptionController.dispose();
-    _remarksController.dispose();
     super.dispose();
   }
 
@@ -48,7 +46,13 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
       final storage = const FlutterSecureStorage();
       final orgId = await storage.read(key: 'orgId') ?? '';
       userId = await storage.read(key: 'userId') ?? '';
+      final myZoneId = await storage.read(key: 'zoneId') ?? '';
       zones = await _zoneService.getZonesByOrgId(orgId);
+      // Zone leaders and members raise red tags for their own zone only.
+      if (myZoneId.isNotEmpty) {
+        zones = zones.where((z) => z.id == myZoneId).toList();
+        if (zones.isNotEmpty) selectedZoneId = myZoneId;
+      }
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -66,7 +70,8 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    // imageQuality re-encodes HEIC/WebP picks as JPEG, which the backend accepts.
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     
     if (image != null) {
       setState(() {
@@ -97,7 +102,6 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
         zoneId: selectedZone.id,
         redTagBy: userId, // TODO: Get from secure storage
         description: _descriptionController.text,
-        remarks: _remarksController.text,
         file: File(attachedPhotoPath!),
         createdBy: userId, // TODO: Get from secure storage
       );
@@ -110,7 +114,7 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
               backgroundColor: Colors.green,
             ),
           );
-          context.push('/manage-red-tags');
+          context.pop(true);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -238,25 +242,6 @@ class _CreateRedTagScreenWrapperState extends State<CreateRedTagScreenWrapper> {
                         File(attachedPhotoPath!),
                         fit: BoxFit.cover,
                       ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Remarks',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _remarksController,
-              maxLines: 2,
-              decoration: InputDecoration(
-                hintText: 'Enter remarks...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: const Color(0xFFF5F5F5),
               ),
             ),
             const SizedBox(height: 32),

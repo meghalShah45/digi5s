@@ -26,7 +26,8 @@ class TaskService {
     final orgId = s.orgId ?? '';
     if (orgId.isEmpty) throw const ApiException(400, 'Your account is not linked to an organisation.');
     final res = await _api.post('/tasks/detailsByUserId', body: {'orgId': orgId, 'userId': s.id});
-    return _sorted(res.list.map(Task.fromJson).toList());
+    // This route also returns deactivated tasks (approved == false); hide them.
+    return _sorted(res.list.map(Task.fromJson).where((t) => t.approved).toList());
   }
 
   /// All approved tasks for an organisation (`GET /tasks/org/{orgId}`).

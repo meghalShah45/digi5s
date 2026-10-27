@@ -9,7 +9,7 @@ import '../../providers/zone_provider.dart';
 import 'widgets/create_audit_sheet.dart';
 import 'widgets/audit_editor_screen.dart';
 import '../../../features/audit/screens/perform_audit_screen.dart';
-import 'audit_statistics_by_zone_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:seicho_app/features/dashboard/dashboard_repository.dart';
 
 class ManageAuditScreen extends ConsumerStatefulWidget {
@@ -193,14 +193,7 @@ class _ManageAuditScreenState extends ConsumerState<ManageAuditScreen> {
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AuditStatisticsByZoneScreen(),
-                        ),
-                      );
-                    },
+                    onPressed: () => context.push('/audit-scores'),
                     icon: const Icon(Icons.analytics, size: 18),
                     label: const Text('Statistics'),
                     style: ElevatedButton.styleFrom(

@@ -23,9 +23,9 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               const ActingOrgBanner(),
               const SubscriptionBanner(),
-              const FlashNewsTicker(),
               const DashboardStats(),
               _buildMainGrid(context),
+              const FlashNewsTicker(),
             ],
           ),
         ),
@@ -58,8 +58,8 @@ class HomeScreen extends ConsumerWidget {
             Icons.school_outlined, onTap: () => context.push('/manage-training-material')),
         buildGridItem(context, 'Upload Best\nPractices', const Color(0xFFE0F2F1), const Color(0xFF00695C),
             Icons.upload_file_outlined, onTap: () => context.push('/manage-best-practices')),
-        buildGridItem(context, 'Flash\nNews', const Color(0xFFFFEBEE), const Color(0xFFC62828),
-            Icons.flash_on_outlined, onTap: () => context.push('/flash-news')),
+        buildGridItem(context, 'View Audit\nScores', const Color(0xFFE8F5E9), const Color(0xFF2E7D32), Icons.insert_chart_outlined,
+            onTap: () => context.push('/audit-scores')),
       ],
     );
   }

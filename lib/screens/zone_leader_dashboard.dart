@@ -32,9 +32,9 @@ class ZoneLeaderDashboard extends ConsumerWidget {
               const DashboardHeader(),
               const SizedBox(height: 16),
               const SubscriptionBanner(),
-              const FlashNewsTicker(),
               const DashboardStats(),
               _buildMainGrid(context),
+              const FlashNewsTicker(),
             ],
           ),
         ),
@@ -65,8 +65,8 @@ class ZoneLeaderDashboard extends ConsumerWidget {
             onTap: () => context.push('/manage-best-practices')),
         buildGridItem(context, '5S Org. Structure', const Color(0xFFFFF3E0), const Color(0xFFEF6C00), Icons.account_tree_outlined,
             onTap: () => context.push('/manage-zone')),
-        buildGridItem(context, 'Flash News', const Color(0xFFFFEBEE), const Color(0xFFC62828), Icons.flash_on_outlined,
-            onTap: () => context.push('/flash-news')),
+        buildGridItem(context, 'View Audit Scores', const Color(0xFFE8F5E9), const Color(0xFF2E7D32), Icons.insert_chart_outlined,
+            onTap: () => context.push('/audit-scores')),
       ],
     );
   }

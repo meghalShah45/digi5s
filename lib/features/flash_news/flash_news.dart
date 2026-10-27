@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
@@ -78,7 +80,16 @@ final orgFlashNewsProvider = FutureProvider.autoDispose<List<FlashNews>>((ref) a
   return ref.read(flashNewsServiceProvider).forOrg(orgId);
 });
 
-/// Only the items that have not expired.
+/// Only the items that have not expired. Re-evaluates when the next item
+/// expires, so a dashboard left open drops it without a refresh.
 final activeFlashNewsProvider = Provider.autoDispose<AsyncValue<List<FlashNews>>>((ref) {
-  return ref.watch(orgFlashNewsProvider).whenData((l) => l.where((n) => n.isActive).toList());
+  final all = ref.watch(orgFlashNewsProvider);
+  final active = all.whenData((l) => l.where((n) => n.isActive).toList());
+  final next = active.valueOrNull?.map((n) => n.expiryDate).fold<DateTime?>(
+      null, (min, d) => min == null || d.isBefore(min) ? d : min);
+  if (next != null) {
+    final timer = Timer(next.difference(DateTime.now()) + const Duration(seconds: 1), ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return active;
 });

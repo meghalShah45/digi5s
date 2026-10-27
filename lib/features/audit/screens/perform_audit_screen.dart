@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -40,6 +41,9 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
   // build() reset the cursor on every keystroke and reversed typed text.
   final Map<String, TextEditingController> _remarkControllers = {};
   final Map<String, List<Photos>> _photos = {};
+  // Local key -> the sheet's own questionId. Sheet ids can contain '_'
+  // (e.g. '2s_1'), so they must never be recovered by splitting the key.
+  final Map<String, String> _originalIds = {};
   final ZoneService _zoneService = ZoneService();
   bool _isAuditComplete = false;
   double _totalScore = 0;
@@ -75,11 +79,11 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       _userRole = await storage.read(key: 'userRole');
 
       // Load questions from the audit sheet and ensure unique IDs
-      _questions.addAll(widget.sheet.questions.map((q) => AuditQuestion(
-        questionId: '${q.questionId}_${DateTime.now().millisecondsSinceEpoch}_${_questions.length}',
-        question: q.question,
-        score: null,
-      )));
+      for (final q in widget.sheet.questions) {
+        final key = 'q${_questions.length}';
+        _originalIds[key] = q.questionId;
+        _questions.add(AuditQuestion(questionId: key, question: q.question, score: null));
+      }
 
       // Check for existing submissions
       final submissions = await ref.read(auditSheetSubmissionsProvider(widget.sheet.id).future);
@@ -100,7 +104,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
             _latestSubmission = submissions.first;
 
             // Set permissions based on user role
-            if (_userRole == 'zone-admin' || _userRole == 'SUPER-ADMIN' || _userRole!.contains('ADMIN')) {
+            if (_userRole == 'zone-admin' || (_userRole ?? '').contains('ADMIN')) {
               _canPerformAudit = false;
               _isAuditComplete = true;
             } else if (_userRole.toString().toLowerCase() == 'zone-leader') {
@@ -120,11 +124,9 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
           
           // Pre-fill data from the submission only if user can't perform audit
           if (!_canPerformAudit && _latestSubmission != null) {
-            for (var response in _latestSubmission!.responses!) {
-              final question = _questions.firstWhere(
-                (q) => q.questionId.split('_')[0] == response.questionId,
-                orElse: () => _questions.first,
-              );
+            for (var response in _latestSubmission!.responses ?? const []) {
+              final question = _questions.where((q) => _originalIds[q.questionId] == response.questionId).firstOrNull;
+              if (question == null) continue;
 
               if(response.score != null)
                 question.score = response.score;
@@ -134,7 +136,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
                 _remarkControllers[question.questionId]?.text = response.remarks!;
               }
               
-              if (response.photos!.isNotEmpty) {
+              if ((response.photos ?? const []).isNotEmpty) {
                 _photos[question.questionId] = response.photos!;
               }
             }
@@ -143,6 +145,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
           }
         });
       } else {
+        _canPerformAudit = !ref.read(orgReadOnlyProvider);
         // If no submissions and user is zone member, redirect back after 5 seconds
         if (_userRole?.toLowerCase() == 'zone-member') {
           if (mounted) {
@@ -192,10 +195,14 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
         throw Exception('Organization ID not found');
       }
 
-      final zones = await _zoneService.getZonesByOrgId(orgId);
-      
+      var zones = await _zoneService.getZonesByOrgId(orgId);
+      // A zone leader audits their own zone.
+      final myZoneId = await storage.read(key: 'zoneId') ?? '';
+      if (myZoneId.isNotEmpty) zones = zones.where((z) => z.id == myZoneId).toList();
+      if (!mounted) return;
       setState(() {
         _zones = zones;
+        if (myZoneId.isNotEmpty && zones.isNotEmpty) _selectedZone = zones.first;
         _isLoadingZones = false;
       });
     } catch (e) {
@@ -349,6 +356,16 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
         );
         return;
       }
+      final unanswered = _questions.where((q) => q.score == null).length;
+      if (unanswered > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Please score every question ($unanswered left). Choose NA where a question does not apply.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
       setState(() {
         _isAuditComplete = true;
@@ -371,8 +388,8 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       // Prepare responses
       final responses = _questions.map((question) {
         return {
-          'questionId': question.questionId.split('_')[0],
-          'score': question.score == null ? 'NA' : question.score,
+          'questionId': _originalIds[question.questionId] ?? question.questionId,
+          'score': question.score,
           'remarks': _remarks[question.questionId] ?? '',
           'photos': (_photos[question.questionId] ?? []).map((photoPath) {
             final file = File(photoPath.url.toString());
@@ -392,7 +409,8 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
         'applicableQuestions': applicableQuestions,
         'totalScore': _totalScore,
         'auditScorePercentage': _percentageScore,
-        'auditDate': _selectedDate.toIso8601String(),
+        // Calendar date only: a local midnight sent as UTC would land on the previous day.
+        'auditDate': DateFormat('yyyy-MM-dd').format(_selectedDate),
         'auditZone': _selectedZone!.id,
         'responses': responses,
       };
@@ -402,11 +420,13 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       print(jsonEncode(requestBody));
 
       const String baseUrl = AppConfig.apiBaseUrl;
+      final token = await const FlutterSecureStorage().read(key: 'token');
       // Make API call
       final response = await http.post(
         Uri.parse('$baseUrl/audit-sheets/${widget.sheet.id}/submit'),
         headers: {
           'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
         body: jsonEncode(requestBody),
       );
@@ -421,6 +441,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
       // Check both status code and response message
       if ((response.statusCode == 200 || response.statusCode == 201) && (responseBody['statusCode'] == 200 || responseBody['statusCode'] == 201)) {
         if (mounted) {
+          ref.invalidate(auditSheetSubmissionsProvider(widget.sheet.id));
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Audit submitted successfully!')),
           );
@@ -432,7 +453,7 @@ class _PerformAuditScreenState extends ConsumerState<PerformAuditScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(responseBody['error'] ?? 'Failed to submit audit'),
+              content: Text((responseBody is Map ? (responseBody['message'] ?? responseBody['error']) : null)?.toString() ?? 'Failed to submit audit'),
               duration: const Duration(seconds: 3),
               backgroundColor: Colors.red,
             ),

@@ -19,6 +19,7 @@ class ManageZoneScreen extends ConsumerStatefulWidget {
 class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  List<ZoneData> _allZones = [];
   List<ZoneData> _filteredZones = [];
   bool _isLoading = true;
   String? _error;
@@ -73,6 +74,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
       )).toList();
 
       setState(() {
+        _allZones = zoneDataList;
         _filteredZones = _filterZones(zoneDataList);
         _isLoading = false;
       });
@@ -99,7 +101,8 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
   @override
   Widget build(BuildContext context) {
     final userInfo = ref.watch(currentUserProvider);
-    final isZoneMember = userInfo?.isReadOnly ?? true;
+    // Zones are the organisation structure: only admins change them.
+    final isZoneMember = !(userInfo?.isAdmin ?? false);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -225,7 +228,7 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
         onChanged: (value) {
           setState(() {
             _searchQuery = value;
-            _filteredZones = _filterZones(_filteredZones);
+            _filteredZones = _filterZones(_allZones);
           });
         },
         decoration: InputDecoration(
@@ -240,7 +243,8 @@ class _ManageZoneScreenState extends ConsumerState<ManageZoneScreen> {
 
   Widget _buildZoneCard(BuildContext context, ZoneData zone) {
     final userInfo = ref.watch(currentUserProvider);
-    final isZoneMember = userInfo?.isReadOnly ?? true;
+    // Zones are the organisation structure: only admins change them.
+    final isZoneMember = !(userInfo?.isAdmin ?? false);
 
     return Container(
       padding: const EdgeInsets.all(16),

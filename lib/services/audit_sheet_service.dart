@@ -10,6 +10,15 @@ import '../core/api/api_client.dart';
 class AuditSheetService {
   static const String baseUrl = AppConfig.apiBaseUrl;
 
+  static Future<Map<String, String>> _headers() async {
+    final token = await const FlutterSecureStorage().read(key: 'token');
+    return {
+      'Content-Type': 'application/json',
+      'accept': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
+
   Future<AuditSheet> createAuditSheet(AuditSheet auditSheet) async {
     try {
       final storage = const FlutterSecureStorage();
@@ -29,10 +38,7 @@ class AuditSheetService {
 
       final response = await http.post(
         Uri.parse('$baseUrl/audit-sheets'),
-        headers: {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-        },
+        headers: await _headers(),
         body: jsonEncode({
           'name': auditSheet.name,
           'orgId': auditSheet.orgId,
@@ -121,9 +127,7 @@ class AuditSheetService {
       
       final response = await http.get(
         uri,
-        headers: {
-          'accept': 'application/json',
-        },
+        headers: await _headers(),
       );
       await ApiClient.throwIfUnauthorized(response);
 
@@ -220,9 +224,7 @@ class AuditSheetService {
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/audit-sheets/$id'),
-        headers: {
-          'accept': 'application/json',
-        },
+        headers: await _headers(),
       );
       await ApiClient.throwIfUnauthorized(response);
 
@@ -257,10 +259,7 @@ class AuditSheetService {
 
       final response = await http.put(
         Uri.parse('$baseUrl/audit-sheets/${auditSheet.id}'),
-        headers: {
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-        },
+        headers: await _headers(),
         body: jsonEncode({
           'name': auditSheet.name,
           'orgId': auditSheet.orgId,
@@ -346,9 +345,7 @@ class AuditSheetService {
       print('Fetching submissions for audit sheet: $auditSheetId');
       final response = await http.get(
         Uri.parse('$baseUrl/audit-sheets/$auditSheetId/submissions'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await _headers(),
       );
       await ApiClient.throwIfUnauthorized(response);
 
@@ -393,9 +390,7 @@ class AuditSheetService {
     try {
       final response = await http.post(
         Uri.parse('${AppConfig.apiBaseUrl}/audit-sheets/$auditSheetId/submit'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await _headers(),
         body: json.encode({
           'responses': responses.map((r) => r.toJson()).toList(),
         }),

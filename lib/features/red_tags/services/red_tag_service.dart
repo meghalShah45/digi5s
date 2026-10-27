@@ -16,7 +16,6 @@ class RedTagService {
     required String zoneId,
     required String redTagBy,
     required String description,
-    String remarks = '',
     File? file,
     required String createdBy,
   }) async {
@@ -88,11 +87,13 @@ class RedTagService {
     });
   }
 
-  /// Returns a human-readable message; never throws.
+  static const deletedMessage = 'Red tag deleted successfully';
+
+  /// Returns [deletedMessage] on success, otherwise the error message; never throws.
   Future<String?> deleteRedTag(String redTagId) async {
     try {
       await _api.delete('/redtags/$redTagId');
-      return 'Red tag deleted successfully';
+      return deletedMessage;
     } on ApiException catch (e) {
       return e.message;
     } catch (_) {
@@ -105,7 +106,6 @@ class RedTagService {
     required String description,
     String? path,
     String? status,
-    String? remarks,
     required String modifiedBy,
   }) async {
     await _api.put('/redtags/$redTagId', body: {

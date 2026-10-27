@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'core/auth/session.dart';
 import 'features/audit/models/audit_sheet.dart';
 import 'features/audit/screens/audit_sheets_list_screen.dart';
-import 'features/audit/screens/audit_statistics_screen.dart';
+import 'features/audit/screens/audit_scores_screen.dart';
 import 'features/audit/screens/perform_audit_screen.dart';
 import 'features/manuals/screens/manage_manual_screen.dart';
 import 'features/news/screens/manage_news_screen.dart';
@@ -178,14 +178,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/perform-audit/:id',
         builder: (_, state) => PerformAuditScreen(sheet: state.extra as AuditSheet),
       ),
+      GoRoute(path: '/audit-scores', builder: (_, __) => const AuditScoresScreen()),
       GoRoute(
         path: '/audit-statistics/:zoneId',
-        builder: (_, state) => AuditStatisticsScreen(zoneId: state.pathParameters['zoneId'] ?? ''),
+        builder: (_, state) => AuditScoresScreen(initialZoneId: state.pathParameters['zoneId']),
         routes: [
           // Older screens push `/audit-statistics/<zoneId>/<year>`.
           GoRoute(
             path: ':year',
-            builder: (_, state) => AuditStatisticsScreen(zoneId: state.pathParameters['zoneId'] ?? ''),
+            builder: (_, state) => AuditScoresScreen(initialZoneId: state.pathParameters['zoneId']),
           ),
         ],
       ),

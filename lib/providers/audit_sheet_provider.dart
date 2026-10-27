@@ -18,7 +18,8 @@ final createAuditSheetProvider = FutureProvider.family<AuditSheet, CreateAuditSh
   return service.createAuditSheet(params.auditSheet);
 }); 
 
-final auditSheetsProvider = FutureProvider.family<List<AuditSheet>, ({String orgId})>((ref, params) async {
+// autoDispose: a failed or stale fetch (e.g. after a re-login) must not stick for the whole session.
+final auditSheetsProvider = FutureProvider.autoDispose.family<List<AuditSheet>, ({String orgId})>((ref, params) async {
   try {
     print('AuditSheetsProvider: Fetching sheets for orgId: ${params.orgId}');
     final service = ref.watch(auditSheetServiceProvider);
@@ -42,7 +43,7 @@ final updateAuditSheetProvider = FutureProvider.family<AuditSheet, AuditSheet>((
   return service.updateAuditSheet(auditSheet);
 });
 
-final auditSheetSubmissionsProvider = FutureProvider.family<List<AuditSubmission>, String>((ref, auditSheetId) async {
+final auditSheetSubmissionsProvider = FutureProvider.autoDispose.family<List<AuditSubmission>, String>((ref, auditSheetId) async {
   final service = ref.watch(auditSheetServiceProvider);
   return service.getAuditSheetSubmissions(auditSheetId);
 }); 

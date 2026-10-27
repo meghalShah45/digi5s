@@ -29,7 +29,12 @@ class DashboardCounts {
     this.tasksTotal = 0,
   });
 
-  static DashboardCounts fromLists(List<Map<String, dynamic>> redTags, List<Map<String, dynamic>> tasks) {
+  /// [ownTasks]: [tasks] are the user's own tasks, so "pending" uses the same
+  /// statuses as the My Tasks "Pending" tab. [awaitingDecision], when given,
+  /// replaces the PENDING_APPROVAL count (a zone leader's zone tasks waiting
+  /// for their approval rather than their own submissions).
+  static DashboardCounts fromLists(List<Map<String, dynamic>> redTags, List<Map<String, dynamic>> tasks,
+      {bool ownTasks = false, int? awaitingDecision}) {
     int count(List<Map<String, dynamic>> l, Set<String> statuses) =>
         l.where((e) => statuses.contains((e['status'] ?? '').toString().toUpperCase())).length;
     return DashboardCounts(
@@ -37,9 +42,10 @@ class DashboardCounts {
       redTagsApproved: count(redTags, {'APPROVED', 'COMPLETED'}),
       redTagsRejected: count(redTags, {'REJECTED'}),
       redTagsTotal: redTags.length,
-      tasksPending: count(tasks, {'PENDING'}),
+      tasksPending: count(
+          tasks, ownTasks ? {'PENDING', 'PENDING_APPROVAL', 'WORK-IN-PROGRESS', 'VERIFY'} : {'PENDING'}),
       tasksInProgress: count(tasks, {'WORK-IN-PROGRESS', 'VERIFY'}),
-      tasksPendingApproval: count(tasks, {'PENDING_APPROVAL'}),
+      tasksPendingApproval: awaitingDecision ?? count(tasks, {'PENDING_APPROVAL'}),
       tasksCompleted: count(tasks, {'COMPLETED'}),
       tasksRejected: count(tasks, {'REJECTED'}),
       tasksTotal: tasks.length,
@@ -164,11 +170,33 @@ class DashboardRepository {
     return DashboardCounts.fromLists(redTags, tasks);
   }
 
+  /// Zone leader: their zone's red tags, the tasks assigned to them (matching
+  /// My Tasks), and the zone's tasks waiting for their approval.
+  Future<DashboardCounts> countsForZoneLeader(
+      {required String orgId, required String zoneId, required String userId}) async {
+    final results = await Future.wait([
+      _api.get('/redtags/org/$orgId'),
+      _api.post('/tasks/detailsByUserId', body: {'orgId': orgId, 'userId': userId}),
+      _api.get('/tasks/org/$orgId'),
+    ]);
+    final inZone = (Map<String, dynamic> e) => e['zoneId']?.toString() == zoneId;
+    final redTags = results[0].list.where(inZone).toList();
+    final awaiting = results[2]
+        .list
+        .where((e) => inZone(e) && (e['status'] ?? '').toString().toUpperCase() == 'PENDING_APPROVAL')
+        .length;
+    return DashboardCounts.fromLists(redTags, _active(results[1].list), ownTasks: true, awaitingDecision: awaiting);
+  }
+
   /// Tasks assigned to one user (zone member view).
   Future<DashboardCounts> countsForUser({required String orgId, required String userId}) async {
     final res = await _api.post('/tasks/detailsByUserId', body: {'orgId': orgId, 'userId': userId});
-    return DashboardCounts.fromLists(const [], res.list);
+    return DashboardCounts.fromLists(const [], _active(res.list), ownTasks: true);
   }
+
+  // detailsByUserId also returns deactivated (approved == false) tasks.
+  static List<Map<String, dynamic>> _active(List<Map<String, dynamic>> tasks) =>
+      tasks.where((e) => e['approved'] != false).toList();
 
   Future<SubscriptionStatus> subscription(String orgId) async {
     final res = await _api.get('/organisation-subscriptions/org/$orgId');
@@ -187,12 +215,16 @@ class DashboardRepository {
 
 final dashboardRepositoryProvider = Provider((ref) => DashboardRepository(ref.read(apiClientProvider)));
 
-/// Counts for the current user's org, narrowed to their zone for zone roles.
+/// Counts for the current user's org. Zone leaders see their zone's red tags
+/// but only the tasks assigned to them, so the tiles match My Tasks.
 final dashboardCountsProvider = FutureProvider.autoDispose<DashboardCounts>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null || user.orgId == null || user.orgId!.isEmpty) return const DashboardCounts();
   final repo = ref.read(dashboardRepositoryProvider);
   if (user.isZoneMember) return repo.countsForUser(orgId: user.orgId!, userId: user.id);
+  if (user.isZoneLeader && (user.zoneId ?? '').isNotEmpty) {
+    return repo.countsForZoneLeader(orgId: user.orgId!, zoneId: user.zoneId!, userId: user.id);
+  }
   return repo.counts(orgId: user.orgId!, zoneId: user.isZoneLeader ? user.zoneId : null);
 });
 

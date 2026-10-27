@@ -215,18 +215,28 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
     try {
       final storage = const FlutterSecureStorage();
       final orgId = await storage.read(key: 'orgId') ?? '';
+      final myId = await storage.read(key: 'userId') ?? '';
       final memberService = MemberService();
       final response = await memberService.getZoneMembers(
         orgId: orgId,
         zoneId: _selectedZone!.id,
       );
-      
-      print('Successfully loaded members response: $response');
+
       if (response['data'] != null) {
         final List<dynamic> membersData = response['data'];
-        print('Members data: $membersData');
+        // Only active people who can do the work; never the creator, who approves it.
+        final assignable = membersData
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .where((m) =>
+                m['approved'] != false &&
+                m['disabled'] != true &&
+                (m['role'] ?? '').toString().toUpperCase() != 'VIEWER' &&
+                m['id']?.toString() != myId)
+            .toList();
+        if (!mounted) return;
         setState(() {
-          _zoneMembers = membersData.cast<Map<String, dynamic>>();
+          _zoneMembers = assignable;
           _isLoading = false;
         });
       } else {
@@ -257,12 +267,19 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
 
     try {
       final zoneService = ZoneService();
-      final orgId = await const FlutterSecureStorage().read(key: 'orgId') ?? '';
-      final zones = await zoneService.getZonesByOrgId(orgId);
+      const storage = FlutterSecureStorage();
+      final orgId = await storage.read(key: 'orgId') ?? '';
+      final myZoneId = await storage.read(key: 'zoneId') ?? '';
+      var zones = await zoneService.getZonesByOrgId(orgId);
+      // A zone leader assigns tasks in their own zone only.
+      if (myZoneId.isNotEmpty) zones = zones.where((z) => z.id == myZoneId).toList();
+      if (!mounted) return;
       setState(() {
         _zones = zones;
         _isLoading = false;
+        if (myZoneId.isNotEmpty && zones.isNotEmpty) _selectedZone = zones.first;
       });
+      if (_selectedZone != null) _loadZoneMembers();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -299,6 +316,10 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
         'POST',
         Uri.parse('${AppConfig.apiBaseUrl}/tasks'),
       );
+      final token = await storage.read(key: 'token');
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
 
       // Add text fields
       request.fields.addAll({
@@ -402,6 +423,20 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
     }
   }
 
+  static String _roleLabel(String? role) {
+    switch ((role ?? '').toUpperCase()) {
+      case 'ZONE-LEADER':
+        return 'Zone Leader';
+      case 'ZONE-MEMBER':
+        return 'Zone Member';
+      case 'ORG-ADMIN':
+      case 'ORGANISATION-ADMIN':
+        return 'Admin';
+      default:
+        return role ?? '';
+    }
+  }
+
   Widget _buildMemberDropdown() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -432,7 +467,7 @@ class _Create5STaskScreenState extends State<Create5STaskScreen> {
       print('Processing member: $member');
       final userId = member['id']?.toString() ?? '';
       final fullName = member['fullName']?.toString() ?? "";
-      final role = member['role']!.toString();
+      final role = _roleLabel(member['role']?.toString());
       print('Created item - userId: $userId, fullName: $fullName');
       return DropdownMenuItem<String>(
         key: ValueKey(userId),

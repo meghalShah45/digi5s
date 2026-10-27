@@ -152,36 +152,78 @@ class FlashNewsTicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final news = ref.watch(activeFlashNewsProvider).valueOrNull ?? const [];
-    if (news.isEmpty) return const SizedBox.shrink();
-    return InkWell(
-      onTap: () => context.push('/flash-news'),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(color: const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(10)),
-        child: Row(
-          children: [
-            const Icon(Icons.flash_on, color: Color(0xFFC62828), size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final n in news.take(3))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Text(n.content, maxLines: 2, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF7F0000), fontWeight: FontWeight.w500)),
+    // With no dashboard tile, this section is the way in: organisation
+    // admins still see it when empty so they can add an item.
+    final user = ref.watch(currentUserProvider);
+    final canAdd = (user?.isAdmin ?? false) && !ref.watch(orgReadOnlyProvider);
+    if (news.isEmpty && !canAdd) return const SizedBox.shrink();
+    final cardWidth = news.length <= 1 ? MediaQuery.of(context).size.width - 40 : 240.0;
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.bolt, color: Color(0xFFEF6C00), size: 22),
+              SizedBox(width: 6),
+              Text('Flash News', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF2D2D2D))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 76,
+            child: news.isEmpty
+                ? InkWell(
+                    onTap: () => context.push('/flash-news'),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: cardWidth,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_circle_outline, size: 18, color: Colors.grey.shade600),
+                          const SizedBox(width: 6),
+                          Text('No flash news. Tap to add one.', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                        ],
+                      ),
                     ),
-                  if (news.length > 3)
-                    Text('+${news.length - 3} more', style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
-                ],
+                  )
+                : ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: news.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, i) => InkWell(
+                onTap: () => context.push('/flash-news'),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: cardWidth,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                  ),
+                  child: Text(
+                    news[i].content,
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
+                  ),
+                ),
               ),
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFFC62828)),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -218,15 +260,22 @@ class DashboardStats extends ConsumerWidget {
           ),
         );
 
+    // Each tile opens the list its number was counted from.
+    final user = ref.watch(currentUserProvider);
+    final ownTasks = (user?.isZoneLeader ?? false) || (user?.isZoneMember ?? false);
+    final tasksRoute = ownTasks ? '/zone-member/my-tasks' : '/manage-5s-tasks';
+    final canApprove = (user?.isZoneLeader ?? false) || (user?.isAdmin ?? false);
+    final awaitingRoute = canApprove ? '/approve-5s-task' : tasksRoute;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          tile('Tasks\npending', c?.tasksPending, AppColors.primary, onTap: () => context.push('/manage-5s-tasks')),
+          tile('Tasks\npending', c?.tasksPending, AppColors.primary, onTap: () => context.push(tasksRoute)),
           const SizedBox(width: 8),
-          tile('Awaiting\napproval', c?.tasksPendingApproval, Colors.orange.shade800, onTap: () => context.push('/manage-5s-tasks')),
+          tile('Awaiting\napproval', c?.tasksPendingApproval, Colors.orange.shade800, onTap: () => context.push(awaitingRoute)),
           const SizedBox(width: 8),
-          tile('Tasks\ncompleted', c?.tasksCompleted, Colors.green.shade700, onTap: () => context.push('/manage-5s-tasks')),
+          tile('Tasks\ncompleted', c?.tasksCompleted, Colors.green.shade700, onTap: () => context.push(tasksRoute)),
           if (showRedTags) ...[
             const SizedBox(width: 8),
             tile('Red tags\nopen', c?.redTagsPending, const Color(0xFFC2185B), onTap: () => context.push('/manage-red-tags')),

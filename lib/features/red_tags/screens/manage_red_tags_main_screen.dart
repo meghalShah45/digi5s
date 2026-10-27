@@ -36,7 +36,7 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
     try {
       final orgId = await _storage.read(key: 'orgId');
       final userId = await _storage.read(key: 'userId');
-      if (orgId == null) {
+      if (orgId == null || orgId.isEmpty) {
         setState(() {
           _error = 'Organization ID not found';
           _isLoading = false;
@@ -71,8 +71,8 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
       final userInfo = ref.read(currentUserProvider);
       List<RedTag> filteredTags = redTags;
       
-      if (userInfo?.isZoneMember == true && userInfo?.zoneId != null) {
-        // Zone members can only see red tags from their assigned zone
+      if ((userInfo?.isZoneMember == true || userInfo?.isZoneLeader == true) && (userInfo?.zoneId ?? '').isNotEmpty) {
+        // Zone members and leaders only see red tags from their assigned zone
         filteredTags = redTags.where((tag) => tag.zoneId == userInfo!.zoneId).toList();
       }
 
@@ -92,12 +92,14 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
   Future<void> _deleteRedTag(RedTag redTag) async {
     try {
       final response = await _redTagService.deleteRedTag(redTag.id);
+      final ok = response == RedTagService.deletedMessage;
       await _loadRedTags();
+      if (ok) ref.invalidate(dashboardCountsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response ?? 'Red tag deleted successfully'),
-            backgroundColor: response?.contains('Error') == true ? Colors.red : Colors.green,
+            content: Text(response ?? RedTagService.deletedMessage),
+            backgroundColor: ok ? Colors.green : Colors.red,
           ),
         );
       }
@@ -113,82 +115,54 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
     }
   }
 
+  // Only the description is editable here; approval goes through the
+  // org admin's approve/reject on the red tag details screen.
   Future<void> _showEditDialog(RedTag redTag) async {
     final descriptionController = TextEditingController(text: redTag.description);
-    final remarksController = TextEditingController(text: redTag.remarks ?? '');
-    String selectedStatus = redTag.status;
+    final messenger = ScaffoldMessenger.of(context);
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Red Tag'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: remarksController,
-                decoration: const InputDecoration(labelText: 'Remarks'),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedStatus,
-                decoration: const InputDecoration(labelText: 'Status'),
-                items: ['PENDING', 'APPROVED', 'REJECTED'].map((status) {
-                  return DropdownMenuItem(
-                    value: status,
-                    child: Text(status),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    selectedStatus = value;
-                  }
-                },
-              ),
-            ],
-          ),
+        content: TextField(
+          controller: descriptionController,
+          maxLines: null,
+          decoration: const InputDecoration(labelText: 'Description'),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
+              if (descriptionController.text.trim().isEmpty) {
+                messenger.showSnackBar(const SnackBar(content: Text('Description cannot be empty'), backgroundColor: Colors.red));
+                return;
+              }
               try {
                 await _redTagService.updateRedTag(
                   redTag.id,
                   description: descriptionController.text,
-                  path: redTag.path,
-                  status: selectedStatus,
-                  remarks: remarksController.text,
                   modifiedBy: _userId ?? '',
                 );
-                if (mounted) {
-                  Navigator.pop(context);
-                  await _loadRedTags();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Red tag updated successfully'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+                if (!mounted) return;
+                await _loadRedTags();
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Red tag updated successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
               } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error updating red tag: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Error updating red tag: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
               }
             },
             child: const Text('Save'),
@@ -292,7 +266,8 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
                       separatorBuilder: (_, __) => const SizedBox(height: 16),
                       itemBuilder: (context, index) {
                         final tag = _filteredRedTags[index];
-                        final isPending = tag.status == 'PENDING';
+                        // VERIFY is a legacy "still open" state; the dashboard counts it as open too.
+                        final isPending = tag.status == 'PENDING' || tag.status == 'VERIFY';
                         final isRejected = tag.status == 'REJECTED';
                         Color statusColor;
                         if (isPending) {
@@ -304,7 +279,13 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
                         }
                         final statusText = isPending ? 'Decision Pending' : tag.status;
 
-                        return Container(
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () async {
+                            await context.push('/red-tag-details/${tag.id}');
+                            if (mounted) _loadRedTags();
+                          },
+                          child: Container(
                           decoration: BoxDecoration(
                             color: statusColor,
                             borderRadius: BorderRadius.circular(14),
@@ -331,10 +312,6 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
                                 ],
                               ),
                               const SizedBox(height: 10),
-                              if (tag.remarks != null) ...[
-                                Text('Remarks: ${tag.remarks}'),
-                                const SizedBox(height: 10),
-                              ],
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -401,6 +378,7 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
                               ),
                             ],
                           ),
+                          ),
                         );
                       },
                     ),
@@ -409,7 +387,12 @@ class _ManageRedTagsMainScreenState extends ConsumerState<ManageRedTagsMainScree
         ],
       ),
       floatingActionButton: ref.read(orgReadOnlyProvider) ? null : FloatingActionButton(
-        onPressed: () => context.push('/create-red-tag'),
+        onPressed: () async {
+          await context.push('/create-red-tag');
+          if (!mounted) return;
+          ref.invalidate(dashboardCountsProvider);
+          _loadRedTags();
+        },
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: AppColors.secondaryLight),
       ),

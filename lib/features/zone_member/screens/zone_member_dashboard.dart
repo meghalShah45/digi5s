@@ -69,9 +69,9 @@ class ZoneMemberDashboard extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               const SubscriptionBanner(),
-              const FlashNewsTicker(),
               const DashboardStats(showRedTags: false),
               _buildMainGrid(context),
+              const FlashNewsTicker(),
             ],
           ),
         ),
@@ -98,8 +98,8 @@ class ZoneMemberDashboard extends ConsumerWidget {
             onTap: () => context.push('/5s-training-material')),
         buildGridItem(context, 'Best Practices', const Color(0xFFE0F2F1), const Color(0xFF00695C), Icons.star_outline,
             onTap: () => context.push('/manage-best-practices')),
-        buildGridItem(context, 'Flash News', const Color(0xFFFFEBEE), const Color(0xFFC62828), Icons.flash_on_outlined,
-            onTap: () => context.push('/flash-news')),
+        buildGridItem(context, 'View Audit Scores', const Color(0xFFE8F5E9), const Color(0xFF2E7D32), Icons.insert_chart_outlined,
+            onTap: () => context.push('/audit-scores')),
       ],
     );
   }

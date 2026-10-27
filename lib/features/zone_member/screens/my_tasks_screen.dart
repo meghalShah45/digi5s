@@ -227,6 +227,17 @@ class _MyTasksScreenState extends State<MyTasksScreen>
     );
   }
 
+  /// The zone leader's remarks on the latest rejection, if any.
+  String? _rejectionReason(Task task) {
+    for (final a in task.activity.reversed) {
+      if (a.status == 'REJECTED') {
+        final r = a.description.trim();
+        return r.isEmpty || r == 'Rejected' ? null : r;
+      }
+    }
+    return null;
+  }
+
   Widget _buildTaskCard(Task task) {
     final statusColor = _getStatusColor(task.status);
     final statusText = _getStatusText(task.status);
@@ -289,6 +300,18 @@ class _MyTasksScreenState extends State<MyTasksScreen>
             task.description,
             style: const TextStyle(fontSize: 14),
           ),
+          if (task.isRejected && _rejectionReason(task) != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
+              child: Text(
+                'Reason for rejection: ${_rejectionReason(task)}',
+                style: TextStyle(fontSize: 13, color: Colors.red.shade800),
+              ),
+            ),
+          ],
           if (task.taskPhotos.isNotEmpty) ...[
             const SizedBox(height: 12),
             SizedBox(

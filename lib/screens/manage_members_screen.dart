@@ -372,7 +372,8 @@ class _ManageMembersScreenState extends ConsumerState<ManageMembersScreen> {
 
   Widget _buildMemberCard(Map<String, dynamic> member) {
     final userInfo = ref.watch(currentUserProvider);
-    final isZoneMember = userInfo?.isReadOnly ?? true;
+    // Deactivate and password reset are admin actions.
+    final isZoneMember = !(userInfo?.isAdmin ?? false);
 
     return Container(
       padding: const EdgeInsets.all(16),

@@ -16,7 +16,8 @@ class FlashNewsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final canManage = user?.canManage ?? false;
+    // Only organisation admins post flash news; everyone else reads it.
+    final canManage = user?.isAdmin ?? false;
     // Managers still see inactive items when read-only, but can't change anything.
     final canEdit = canManage && !ref.watch(orgReadOnlyProvider);
     final async = ref.watch(orgFlashNewsProvider);
